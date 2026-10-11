@@ -1,9 +1,10 @@
 import { error, redirect } from '@sveltejs/kit';
-import { addEntry, listPending, listWeek, moveEntry, removeEntry, setStatus, updateEntry } from '$lib/server/plan.js';
+import { addEntry, listPending, listToThaw, setThawed, listWeek, moveEntry, removeEntry, setStatus, updateEntry } from '$lib/server/plan.js';
 import { getItem, listItems } from '$lib/server/items.js';
 import {
 	addPreparation,
 	completePreparation,
+	listOpenPreparations,
 	listWeekPreparations,
 	removePreparation,
 	undoPreparation,
@@ -13,7 +14,7 @@ import { guard } from '$lib/server/forms.js';
 import { ValidationError, date, id, int, oneOf, text } from '$lib/server/validate.js';
 import { listUsers } from '$lib/server/auth.js';
 import { CATEGORIES, LOCATIONS, SLOT_VALUES } from '$lib/constants.js';
-import { isISODate, nowParts, weekStartOf } from '$lib/dates.js';
+import { addDays, isISODate, nowParts, weekStartOf } from '$lib/dates.js';
 
 const STATUS_VALUES = /** @type {const} */ (['planned', 'eaten', 'skipped']);
 
@@ -44,6 +45,8 @@ export function load({ url }) {
 		users: listUsers().map((u) => ({ id: u.id, display_name: u.display_name, color: u.color })),
 		entries: listWeek(start),
 		preparations: listWeekPreparations(start),
+		openPreps: listOpenPreparations(addDays(now.date, -14)),
+		toThaw: listToThaw(now.date),
 		pending: listPending(now),
 		items: listItems().map((i) => ({
 			id: i.id,
@@ -86,10 +89,13 @@ export const actions = {
 			const form = await request.formData();
 			const d = date(form, 'date', { required: true, label: 'Data' });
 			const slot = oneOf(form, 'slot', SLOT_VALUES, { label: 'Refeição' });
-			const itemRaw = form.get('item_id');
-			const item_id = itemRaw ? id(form, 'item_id') : null;
+			// item_id: id de um item do inventário, ou "p<id>" para uma preparação ainda por fazer.
+			const itemRaw = String(form.get('item_id') ?? '');
+			const prepMatch = /^p(\d+)$/.exec(itemRaw);
+			const prep_id = prepMatch ? Number(prepMatch[1]) : null;
+			const item_id = itemRaw && !prepMatch ? id(form, 'item_id') : null;
 			const title = text(form, 'title', { max: 100, label: 'Texto' });
-			if (item_id == null && !title) {
+			if (item_id == null && prep_id == null && !title) {
 				throw new ValidationError('Escolhe um item do inventário ou escreve o que vais comer.');
 			}
 			if (item_id != null && !getItem(item_id)) throw new ValidationError('Esse item já não existe.');
@@ -98,6 +104,7 @@ export const actions = {
 					date: /** @type {string} */ (d),
 					slot,
 					item_id,
+					prep_id,
 					title: item_id == null ? title : null,
 					units: int(form, 'units', { min: 1, max: 99, fallback: 1, label: 'Doses' }),
 					notes: text(form, 'notes', { max: 500, label: 'Nota' }),
@@ -134,6 +141,13 @@ export const actions = {
 			ensure(moveEntry(id(form), d, slot, locals.user.id));
 			// Depois de mover, mostra a semana de destino.
 			redirect(303, `/?w=${weekStartOf(d)}`);
+		}),
+
+	thaw: ({ request, locals }) =>
+		guard(async () => {
+			const form = await request.formData();
+			ensure(setThawed(id(form), form.get('undo') !== '1', locals.user.id));
+			back(form);
 		}),
 
 	status: ({ request, locals }) =>

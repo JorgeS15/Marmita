@@ -3,6 +3,14 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.4.0] - 2026-10-11
+
+### Added
+- **Aviso "Tirar do congelador"** no topo da semana, com as refeições de hoje e de amanhã que vêm do congelador. O botão "Já tirei" esconde o aviso, e o mesmo se pode marcar ou desfazer no painel da refeição.
+- **Planear com preparações por fazer**: ao adicionar uma refeição, o seletor mostra as preparações agendadas nos 7 dias anteriores (🍳). A refeição fica ligada à preparação e, quando esta é confirmada como "Preparado", passa a usar o item criado e a contar no inventário, incluindo as doses já comidas. "Desfazer" na preparação desliga-as outra vez.
+- **Backups automáticos**: uma cópia diária da base de dados em `data/backups/`, guardando as últimas 14 (configurável com `BACKUP_KEEP`; `0` desliga).
+- Botão **"Descarregar base de dados"** em Definições: devolve uma cópia completa e consistente, que serve para repor `data/marmita.db`.
+
 ## [1.3.0] - 2026-10-13
 
 ### Added

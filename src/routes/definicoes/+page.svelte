@@ -121,8 +121,23 @@
 
 		<section class="card stack" aria-labelledby="dados">
 			<h2 id="dados">Dados</h2>
-			<p class="muted small" style="margin:0">Descarrega uma cópia do inventário e do calendário em JSON.</p>
-			<a class="btn" href="/definicoes/export" download data-sveltekit-reload>Exportar JSON</a>
+			<p class="muted small" style="margin:0">
+				Cópia completa da base de dados (serve para repor: substitui <code>data/marmita.db</code>) ou export
+				legível em JSON.
+			</p>
+			<div class="row">
+				<a class="btn" href="/definicoes/backup" download data-sveltekit-reload>Descarregar base de dados</a>
+				<a class="btn" href="/definicoes/export" download data-sveltekit-reload>Exportar JSON</a>
+			</div>
+			<p class="muted small" style="margin:0">
+				{#if data.backups.length}
+					Cópias automáticas diárias no servidor: {data.backups.length}
+					(última: {data.backups[0].name.replace('marmita-', '').replace('.db', '')}), em
+					<code>data/backups/</code>.
+				{:else}
+					Ainda não há cópias automáticas (são feitas uma vez por dia, em <code>data/backups/</code>).
+				{/if}
+			</p>
 		</section>
 
 		<section class="card stack">

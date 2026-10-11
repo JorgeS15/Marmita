@@ -60,13 +60,29 @@ export function addPreparation(d, userId) {
  * @param {number} userId
  */
 export function updatePreparation(id, d, userId) {
-	const res = db()
-		.prepare(
-			`UPDATE preparations SET date = ?, title = ?, notes = ?, person_id = ?, updated_by = ?,
-			   updated_at = datetime('now') WHERE id = ?`
-		)
-		.run(d.date, d.title, d.notes, d.person_id, userId, id);
-	return res.changes > 0;
+	return transaction(() => {
+		const res = db()
+			.prepare(
+				`UPDATE preparations SET date = ?, title = ?, notes = ?, person_id = ?, updated_by = ?,
+				   updated_at = datetime('now') WHERE id = ?`
+			)
+			.run(d.date, d.title, d.notes, d.person_id, userId, id);
+		// As refeições ainda sem item acompanham o novo nome.
+		db().prepare('UPDATE plan_entries SET title = ? WHERE prep_id = ? AND item_id IS NULL').run(d.title, id);
+		return res.changes > 0;
+	});
+}
+
+/** Preparações por fazer (para escolher ao planear uma refeição), da mais próxima para a mais distante. @param {string} from */
+export function listOpenPreparations(from) {
+	return /** @type {{ id: number, date: string, title: string }[]} */ (
+		db()
+			.prepare(
+				`SELECT id, date, title FROM preparations
+				 WHERE status = 'planned' AND date >= ? ORDER BY date, id`
+			)
+			.all(from)
+	);
 }
 
 /** @param {number} id */
@@ -121,6 +137,16 @@ export function completePreparation(id, d, userId) {
 				   updated_at = datetime('now') WHERE id = ?`
 			)
 			.run(itemId, d.units, userId, id);
+		// Refeições já planeadas com esta preparação passam a usar o item (contam no stock).
+		const eaten = /** @type {{ n: number }} */ (
+			db()
+				.prepare(`SELECT COALESCE(SUM(units), 0) AS n FROM plan_entries WHERE prep_id = ? AND status = 'eaten'`)
+				.get(id)
+		).n;
+		db().prepare('UPDATE plan_entries SET item_id = ? WHERE prep_id = ?').run(itemId, id);
+		if (eaten > 0) {
+			db().prepare('UPDATE items SET quantity = MAX(0, quantity - ?) WHERE id = ?').run(eaten, itemId);
+		}
 		return true;
 	});
 }
@@ -130,10 +156,17 @@ export function undoPreparation(id, userId) {
 	return transaction(() => {
 		const prep = getPreparation(id);
 		if (!prep || prep.status !== 'done') return false;
-		if (prep.item_id != null && prep.units_added > 0) {
+		if (prep.item_id != null) {
+			// Devolve as doses já comidas destas refeições e retira as que a preparação tinha somado.
+			const eaten = /** @type {{ n: number }} */ (
+				db()
+					.prepare(`SELECT COALESCE(SUM(units), 0) AS n FROM plan_entries WHERE prep_id = ? AND status = 'eaten'`)
+					.get(id)
+			).n;
 			db()
-				.prepare(`UPDATE items SET quantity = MAX(0, quantity - ?), updated_at = datetime('now') WHERE id = ?`)
-				.run(prep.units_added, prep.item_id);
+				.prepare(`UPDATE items SET quantity = MAX(0, quantity + ? - ?), updated_at = datetime('now') WHERE id = ?`)
+				.run(eaten, prep.units_added, prep.item_id);
+			db().prepare('UPDATE plan_entries SET item_id = NULL WHERE prep_id = ?').run(id);
 		}
 		db()
 			.prepare(

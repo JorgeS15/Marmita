@@ -11,6 +11,13 @@ import {
 /** Rotas acessíveis sem sessão. */
 const PUBLIC = ['/login', '/setup', '/health'];
 
+import { startBackups } from '$lib/server/backup.js';
+
+/** Corre uma vez no arranque do servidor (não durante o build). */
+export function init() {
+	startBackups();
+}
+
 let lastPurge = 0;
 
 /** Hosts extra aceites como origem de formulários (opcional, separados por vírgulas). */

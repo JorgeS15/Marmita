@@ -1,6 +1,7 @@
 import { db, transaction } from './db.js';
 import { addDays } from '$lib/dates.js';
 import { SLOT_DEADLINE_HOUR, SLOT_VALUES } from '$lib/constants.js';
+import { ValidationError } from './validate.js';
 
 /**
  * @typedef {object} PlanEntry
@@ -22,6 +23,11 @@ import { SLOT_DEADLINE_HOUR, SLOT_VALUES } from '$lib/constants.js';
  * @property {number | null} item_quantity
  * @property {number | null} item_archived
  * @property {string | null} item_notes
+ * @property {string | null} item_location
+ * @property {number | null} prep_id
+ * @property {string | null} prep_date
+ * @property {string | null} prep_status
+ * @property {number} thawed
  */
 
 const SELECT = `
@@ -30,9 +36,11 @@ const SELECT = `
 	       pu.display_name AS person_name, pu.color AS person_color,
 	       cu.display_name AS created_by_name, uu.display_name AS updated_by_name,
 	       s.free AS item_free, s.quantity AS item_quantity, s.archived AS item_archived,
-	       s.notes AS item_notes
+	       s.notes AS item_notes, s.location AS item_location,
+	       p.prep_id, pr.date AS prep_date, pr.status AS prep_status, p.thawed
 	FROM plan_entries p
 	LEFT JOIN item_stock s ON s.id = p.item_id
+	LEFT JOIN preparations pr ON pr.id = p.prep_id
 	LEFT JOIN users pu ON pu.id = p.person_id
 	LEFT JOIN users cu ON cu.id = p.created_by
 	LEFT JOIN users uu ON uu.id = p.updated_by`;
@@ -74,6 +82,33 @@ export function listPending(now) {
 	);
 }
 
+/**
+ * Refeições de hoje e amanhã que vêm do congelador e ainda não foram tiradas.
+ * @param {string} today
+ * @returns {PlanEntry[]}
+ */
+export function listToThaw(today) {
+	return /** @type {any} */ (
+		db()
+			.prepare(
+				`${SELECT}
+				 WHERE p.status = 'planned' AND p.thawed = 0 AND s.location = 'congelador'
+				   AND p.date BETWEEN ? AND ?
+				 ${ORDER}`
+			)
+			.all(today, addDays(today, 1))
+	);
+}
+
+/** Marca (ou desmarca) a refeição como já tirada do congelador. @param {number} id @param {boolean} thawed @param {number} userId */
+export function setThawed(id, thawed, userId) {
+	return (
+		db()
+			.prepare(`UPDATE plan_entries SET thawed = ?, updated_by = ?, updated_at = datetime('now') WHERE id = ?`)
+			.run(thawed ? 1 : 0, userId, id).changes > 0
+	);
+}
+
 /** @param {string} date @param {string} slot */
 function nextPosition(date, slot) {
 	const row = /** @type {{ p: number }} */ (
@@ -85,25 +120,36 @@ function nextPosition(date, slot) {
 }
 
 /**
- * @param {{ date: string, slot: string, item_id: number | null, title: string | null, units: number, notes: string, person_id: number | null }} d
+ * @param {{ date: string, slot: string, item_id: number | null, prep_id?: number | null, title: string | null, units: number, notes: string, person_id: number | null }} d
  * @param {number} userId
  */
 export function addEntry(d, userId) {
 	return transaction(() => {
 		let title = d.title;
-		if (d.item_id != null) {
-			const item = /** @type {{ name: string } | undefined} */ (
-				db().prepare('SELECT name FROM items WHERE id = ?').get(d.item_id)
+		let itemId = d.item_id;
+		const prepId = d.prep_id ?? null;
+		if (prepId != null) {
+			// Refeição feita com uma preparação: se já foi confirmada, liga logo ao item criado.
+			const prep = /** @type {{ title: string, item_id: number | null, status: string } | undefined} */ (
+				db().prepare('SELECT title, item_id, status FROM preparations WHERE id = ?').get(prepId)
 			);
-			if (!item) throw new Error('Item não encontrado.');
+			if (!prep) throw new ValidationError('Essa preparação já não existe.');
+			title = prep.title;
+			if (prep.status === 'done' && prep.item_id != null) itemId = prep.item_id;
+		}
+		if (itemId != null) {
+			const item = /** @type {{ name: string } | undefined} */ (
+				db().prepare('SELECT name FROM items WHERE id = ?').get(itemId)
+			);
+			if (!item) throw new ValidationError('Esse item já não existe.');
 			title = item.name;
 		}
 		const res = db()
 			.prepare(
-				`INSERT INTO plan_entries (date, slot, position, item_id, title, units, notes, person_id, created_by, updated_by)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+				`INSERT INTO plan_entries (date, slot, position, item_id, prep_id, title, units, notes, person_id, created_by, updated_by)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			)
-			.run(d.date, d.slot, nextPosition(d.date, d.slot), d.item_id, title, d.units, d.notes, d.person_id, userId, userId);
+			.run(d.date, d.slot, nextPosition(d.date, d.slot), itemId, prepId, title, d.units, d.notes, d.person_id, userId, userId);
 		return Number(res.lastInsertRowid);
 	});
 }
