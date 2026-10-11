@@ -148,8 +148,7 @@
 
 	@keyframes slide {
 		from {
-			transform: translateY(24px);
-			opacity: 0.6;
+			transform: translateY(40px);
 		}
 	}
 

@@ -224,6 +224,7 @@
 
 	.actions {
 		display: flex;
+		flex-direction: column;
 		gap: 6px;
 		flex: none;
 	}
@@ -249,16 +250,5 @@
 	.archived {
 		margin-top: 24px;
 		text-align: center;
-	}
-
-	@media (max-width: 400px) {
-		.item {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.actions {
-			justify-content: flex-end;
-		}
 	}
 </style>

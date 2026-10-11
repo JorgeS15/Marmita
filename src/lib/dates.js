@@ -69,33 +69,38 @@ export function today(timeZone) {
 const fmt = (opts) => new Intl.DateTimeFormat('pt-PT', { timeZone: 'UTC', ...opts });
 
 const fmtWeekday = fmt({ weekday: 'long' });
-const fmtWeekdayShort = fmt({ weekday: 'short' });
-const fmtDayMonth = fmt({ day: 'numeric', month: 'short' });
-const fmtMonth = fmt({ month: 'short' });
-const fmtFull = fmt({ day: 'numeric', month: 'short', year: 'numeric' });
 
-/** Remove o ponto final das abreviaturas ("out." → "out"). @param {string} s */
-const clean = (s) => s.replace(/\./g, '');
+// Abreviaturas fixas: o Intl em pt-PT devolve "13/10" para { day, month: 'short' }.
+const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
 
 /** "segunda-feira" @param {string} iso */
 export function weekdayName(iso) {
 	return fmtWeekday.format(toUTC(iso));
 }
 
+/** "Segunda-feira" @param {string} iso */
+export function weekdayTitle(iso) {
+	const name = weekdayName(iso);
+	return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 /** "seg" @param {string} iso */
 export function weekdayShort(iso) {
-	return clean(fmtWeekdayShort.format(toUTC(iso)));
+	return WEEKDAYS[toUTC(iso).getUTCDay()];
 }
 
 /** "13 out" @param {string} iso */
 export function dayMonth(iso) {
-	return clean(fmtDayMonth.format(toUTC(iso)));
+	const d = toUTC(iso);
+	return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
 
 /** "13 out 2026" @param {string | null | undefined} iso */
 export function fullDate(iso) {
 	if (!iso || !isISODate(iso)) return '';
-	return clean(fmtFull.format(toUTC(iso))).replace(/ de /g, ' ');
+	return `${dayMonth(iso)} ${iso.slice(0, 4)}`;
 }
 
 /** "13–19 out" ou "29 set – 5 out" @param {string} monday */
@@ -104,7 +109,7 @@ export function weekRange(monday) {
 	const a = toUTC(monday);
 	const b = toUTC(sunday);
 	if (a.getUTCMonth() === b.getUTCMonth()) {
-		return `${a.getUTCDate()}–${b.getUTCDate()} ${clean(fmtMonth.format(b))}`;
+		return `${a.getUTCDate()}–${b.getUTCDate()} ${MONTHS[b.getUTCMonth()]}`;
 	}
 	return `${dayMonth(monday)} – ${dayMonth(sunday)}`;
 }

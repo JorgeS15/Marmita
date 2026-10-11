@@ -5,7 +5,7 @@
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import ItemPicker from '$lib/components/ItemPicker.svelte';
 	import { SLOTS, labelOf } from '$lib/constants.js';
-	import { addDays, dayMonth, isISODate, mondayOf, weekDays, weekRange, weekdayName, weekdayShort } from '$lib/dates.js';
+	import { addDays, dayMonth, isISODate, mondayOf, weekDays, weekRange, weekdayName, weekdayShort, weekdayTitle } from '$lib/dates.js';
 
 	let { data, form } = $props();
 
@@ -112,7 +112,7 @@
 
 <main class="page">
 	<header class="page-header week-header">
-		<h1>Semana de {weekRange(data.monday)}</h1>
+		<h1>Semana de <span class="nowrap">{weekRange(data.monday)}</span></h1>
 		<nav class="row" aria-label="Navegar semanas">
 			<a class="btn icon" href="/?w={addDays(data.monday, -7)}" aria-label="Semana anterior" data-sveltekit-noscroll>‹</a>
 			<a class="btn" href="/" aria-disabled={data.monday === thisMonday} class:current={data.monday === thisMonday}>Hoje</a>
@@ -132,7 +132,9 @@
 						<a class="what" href={entryHref(e.id)} data-sveltekit-noscroll>
 							<strong>{e.title}</strong>
 							<span class="muted small">
-								{dayLabel(e.date)} · {labelOf(SLOTS, e.slot)}{#if e.units > 1} · {e.units} doses{/if}
+								{[dayLabel(e.date), labelOf(SLOTS, e.slot), e.units > 1 ? `${e.units} doses` : '']
+									.filter(Boolean)
+									.join(' · ')}
 							</span>
 						</a>
 						<div class="row">
@@ -158,7 +160,7 @@
 			{@const isToday = day === data.today}
 			<section class="day card" class:today={isToday} class:past={day < data.today} aria-labelledby="d-{day}">
 				<h2 id="d-{day}">
-					<span class="wd">{weekdayName(day)}</span>
+					<span class="wd">{weekdayTitle(day)}</span>
 					<span class="dm">{dayMonth(day)}</span>
 					{#if isToday}<span class="badge accent">hoje</span>{/if}
 				</h2>
@@ -434,8 +436,8 @@
 		font-size: 1rem;
 	}
 
-	.wd {
-		text-transform: capitalize;
+	.nowrap {
+		white-space: nowrap;
 	}
 
 	.dm {
