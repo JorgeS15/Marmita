@@ -53,5 +53,6 @@
 			<input type="password" name="password_confirm" required minlength="8" autocomplete="new-password" />
 		</label>
 		<button class="btn primary block" disabled={busy}>Criar conta</button>
+		<p class="muted small" style="margin:0;text-align:center">v{__APP_VERSION__}</p>
 	</form>
 </main>

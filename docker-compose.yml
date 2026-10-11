@@ -7,7 +7,7 @@ services:
     container_name: marmita
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "4004:4004"
     environment:
       ORIGIN: https://marmita.exemplo.pt # URL pública (obrigatório para os form actions / CSRF)
       TZ: Europe/Lisbon

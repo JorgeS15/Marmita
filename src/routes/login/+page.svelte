@@ -42,5 +42,6 @@
 			<input type="password" name="password" required autocomplete="current-password" />
 		</label>
 		<button class="btn primary block" disabled={busy}>Entrar</button>
+		<p class="muted small" style="margin:0;text-align:center">v{__APP_VERSION__}</p>
 	</form>
 </main>

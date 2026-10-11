@@ -9,6 +9,9 @@ export default defineConfig({
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version)
 	},
+	// Mesma porta que em produção (Docker), para não haver surpresas.
+	server: { port: 4004 },
+	preview: { port: 4004 },
 	ssr: {
 		external: ['node:sqlite']
 	}
