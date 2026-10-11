@@ -53,10 +53,18 @@
 {@render children()}
 
 {#if data.user}
+	<footer class="app-version">Marmita v{__APP_VERSION__}</footer>
 	<TabBar />
 {/if}
 
 <style>
+	.app-version {
+		padding: 0 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 16px);
+		text-align: center;
+		font-size: 0.8rem;
+		color: var(--text-muted);
+	}
+
 	.offline {
 		position: sticky;
 		top: 0;

@@ -22,7 +22,7 @@ services:
     container_name: marmita
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "4004:4004"
     environment:
       ORIGIN: https://marmita.exemplo.pt   # URL pública, obrigatória (CSRF)
       TZ: Europe/Lisbon
@@ -45,7 +45,7 @@ No primeiro acesso aparece o ecrã **Setup** para criar a primeira conta. A segu
 | Variável | Por omissão | Descrição |
 |---|---|---|
 | `ORIGIN` | — | URL pública da app (ex.: `https://marmita.exemplo.pt`). É obrigatória porque o SvelteKit valida a origem dos formulários. Em alternativa, usar `PROTOCOL_HEADER=x-forwarded-proto` e `HOST_HEADER=x-forwarded-host`. |
-| `PORT` | `3000` | Porta HTTP. |
+| `PORT` | `4004` | Porta HTTP. |
 | `DATA_DIR` | `/data` | Pasta onde fica a base de dados `marmita.db`. |
 | `TZ` | `Europe/Lisbon` | Fuso horário usado para "hoje" e para "por confirmar". |
 
@@ -59,7 +59,7 @@ A PWA só é instalável por HTTPS. Exemplos:
 
 ```
 marmita.exemplo.pt {
-    reverse_proxy marmita:3000
+    reverse_proxy marmita:4004
 }
 ```
 
@@ -72,7 +72,7 @@ server {
     # ssl_certificate ...; ssl_certificate_key ...;
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:4004;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -116,10 +116,21 @@ As migrações da base de dados são aplicadas automaticamente no arranque.
 O workflow [`.github/workflows/docker.yml`](.github/workflows/docker.yml):
 
 - em cada **pull request** para o `main`, faz o build da imagem (amd64) só para validar, sem a publicar;
-- em cada **push/merge para o `main`**, faz o build para `linux/amd64` e `linux/arm64` e publica `ghcr.io/jorges15/marmita` com as tags `latest` e `sha-<commit>`;
+- em cada **push/merge para o `main`**, faz o build para `linux/amd64` e `linux/arm64` e publica `ghcr.io/jorges15/marmita` com as tags `latest`, a versão do `package.json` (ex.: `1.1.0`) e `sha-<commit>`;
 - em cada **tag `v*`** (ex.: `v1.2.0`), publica também as tags `1.2.0` e `1.2`.
 
 Não é preciso configurar segredos, porque o workflow usa o `GITHUB_TOKEN`. Da primeira vez que a imagem é publicada, o pacote no GHCR pode ficar privado. Para fazer `docker pull` sem autenticação, torna-o público em *GitHub → Packages → marmita → Package settings → Change visibility*, ou faz `docker login ghcr.io` no servidor.
+
+---
+
+## Versões
+
+O projeto segue [Semantic Versioning](https://semver.org/lang/pt-PT/). A versão está em `package.json` e as alterações estão registadas em [`CHANGELOG.md`](CHANGELOG.md). Cada alteração ao código deve incluir:
+
+1. o incremento da versão em `package.json` (`PATCH` para correções, `MINOR` para funcionalidades novas, `MAJOR` para alterações incompatíveis);
+2. uma entrada nova no topo do `CHANGELOG.md`, no formato [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/).
+
+A versão aparece no rodapé de todas as páginas da app, no login e em Definições.
 
 ---
 
@@ -129,9 +140,9 @@ Requer Node.js ≥ 22.13 (recomendado: 24).
 
 ```sh
 npm install
-npm run dev        # http://localhost:5173 (dados em ./data)
+npm run dev        # http://localhost:4004 (dados em ./data)
 npm run check      # verificação de tipos (JSDoc) com svelte-check
-npm run build && npm start
+npm run build && npm start   # http://localhost:4004
 ```
 
 Os ícones PNG são gerados por `node scripts/generate-icons.js`, sem dependências.
@@ -170,7 +181,7 @@ Para adicionar uma migração, cria `src/lib/server/migrations/002_descricao.sql
 Pontos que a especificação deixava em aberto e a opção tomada:
 
 - **Painéis no URL**: o painel para adicionar (`?novo=AAAA-MM-DD.almoco`) e o painel de uma entrada (`?entrada=ID`) são controlados por parâmetros do URL. Assim funcionam sem JavaScript e o botão "voltar" do telemóvel fecha-os.
-- **Cookie `secure`**: só é ativado quando a app é servida por HTTPS (conforme o `ORIGIN`/`PROTOCOL_HEADER`). Assim é possível testar em `http://IP-local:3000`, porque com `secure` o browser descartaria o cookie.
+- **Cookie `secure`**: só é ativado quando a app é servida por HTTPS (conforme o `ORIGIN`/`PROTOCOL_HEADER`). Assim é possível testar em `http://IP-local:4004`, porque com `secure` o browser descartaria o cookie.
 - **Sessões**: duram 1 ano e são renovadas, no máximo uma vez por dia, quando a app é usada. Mudar a palavra-passe termina as outras sessões do utilizador.
 - **Pesquisa e filtros do inventário**: são feitos no browser e ignoram maiúsculas e acentos ("feijao" encontra "Feijão"). Os filtros ficam refletidos no URL.
 - **Arquivar e apagar**: a lista tem "Arquivar". Um item arquivado pode ser reposto ou apagado definitivamente na página do item. As entradas do calendário mantêm o nome do item apagado.

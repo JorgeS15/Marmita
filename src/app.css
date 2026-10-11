@@ -121,7 +121,7 @@ a {
 .page {
 	max-width: 1280px;
 	margin: 0 auto;
-	padding: 16px 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 24px);
+	padding: 16px 16px 24px;
 	padding-top: calc(16px + env(safe-area-inset-top));
 }
 
