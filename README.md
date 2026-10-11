@@ -1,10 +1,10 @@
 # Marmita
 
-Planeador de refeições caseiro: inventário do que está congelado ou guardado e um calendário semanal onde se atribuem essas refeições a almoços e jantares.
+Planeador de refeições caseiro: inventário do que está congelado ou guardado e um calendário semanal onde se atribuem essas refeições às refeições do dia.
 Self-hosted em Docker, usado como PWA e partilhado pelas pessoas da casa.
 
 - **Inventário**: nome, categoria, local, doses, data de congelação, "consumir até" e notas. Cada item mostra `stock · planeadas · livres`.
-- **Semana**: de segunda a domingo, com almoço e jantar. Cada refeição pode ter várias entradas, vindas do inventário ou em texto livre.
+- **Semana**: de domingo a sábado, com pequeno-almoço, lanche da manhã, almoço, lanche da tarde e jantar. Cada refeição pode ter várias entradas, vindas do inventário ou em texto livre, e é atribuída a uma pessoa da casa (ou a ambas). Cada pessoa tem a sua cor.
 - **Consumo**: "Comido" desconta o stock, "Não comido" liberta a dose e "Desfazer" repõe tudo. As refeições que já passaram aparecem em **Por confirmar**.
 - **Contas**: utilizador e palavra-passe. Todos veem e editam os mesmos dados.
 - **PWA** instalável (exige HTTPS), com tema claro e escuro, em português de Portugal.
@@ -24,7 +24,7 @@ services:
     ports:
       - "4004:4004"
     environment:
-      ORIGIN: https://marmita.exemplo.pt   # URL pública, obrigatória (CSRF)
+      ORIGIN: https://marmita.exemplo.pt   # URL pública (opcional)
       TZ: Europe/Lisbon
     volumes:
       - ./data:/data
@@ -44,12 +44,13 @@ No primeiro acesso aparece o ecrã **Setup** para criar a primeira conta. A segu
 
 | Variável | Por omissão | Descrição |
 |---|---|---|
-| `ORIGIN` | — | URL pública da app (ex.: `https://marmita.exemplo.pt`). É obrigatória porque o SvelteKit valida a origem dos formulários. Em alternativa, usar `PROTOCOL_HEADER=x-forwarded-proto` e `HOST_HEADER=x-forwarded-host`. |
+| `ORIGIN` | — | URL pública da app (ex.: `https://marmita.exemplo.pt`). Opcional: a app aceita formulários vindos do mesmo endereço por onde é acedida (domínio, `localhost` ou IP). |
+| `ALLOWED_ORIGINS` | — | Opcional. Outros endereços aceites como origem dos formulários, separados por vírgulas (ex.: `https://outro.exemplo.pt`). |
 | `PORT` | `4004` | Porta HTTP. |
 | `DATA_DIR` | `/data` | Pasta onde fica a base de dados `marmita.db`. |
 | `TZ` | `Europe/Lisbon` | Fuso horário usado para "hoje" e para "por confirmar". |
 
-Se o `ORIGIN` não coincidir com o endereço usado no browser, os formulários falham com *"Cross-site POST form submissions are forbidden"*.
+A proteção CSRF aceita pedidos cuja origem coincide com o host do pedido (`Host` ou `X-Forwarded-Host`), com o `ORIGIN` ou com o `ALLOWED_ORIGINS`. Pedidos de outros sites são rejeitados com 403. Por isso a mesma instalação funciona em `https://marmita.exemplo.pt`, `http://localhost:4004` e `http://192.168.1.x:4004`.
 
 ### Reverse proxy (HTTPS)
 
@@ -154,8 +155,8 @@ src/
 ├─ hooks.server.js          # sessão → locals.user; proteção de rotas; redireciona para /setup
 ├─ service-worker.js        # cache do app shell; navegação network-first com página offline
 ├─ lib/
-│  ├─ dates.js              # semanas (segunda), formatação pt-PT
-│  ├─ constants.js          # categorias, locais, slots
+│  ├─ dates.js              # semanas (domingo), formatação pt-PT
+│  ├─ constants.js          # categorias, locais, refeições do dia, cores
 │  ├─ stock.js              # indicadores de antiguidade/validade
 │  ├─ components/           # BottomSheet, ItemPicker, ItemForm, StockBadge, TabBar
 │  └─ server/
@@ -165,7 +166,7 @@ src/
 │     ├─ items.js           # inventário
 │     └─ plan.js            # calendário; comido/não comido/desfazer em transação
 └─ routes/
-   ├─ +page.*               # Semana (?w=AAAA-MM-DD)
+   ├─ +page.*               # Semana (?w=AAAA-MM-DD do domingo)
    ├─ inventario/           # lista, novo, [id]
    ├─ definicoes/           # perfil, palavra-passe, pessoas, export JSON
    ├─ login/ setup/ logout/
@@ -181,7 +182,11 @@ Para adicionar uma migração, cria `src/lib/server/migrations/002_descricao.sql
 Pontos que a especificação deixava em aberto e a opção tomada:
 
 - **Painéis no URL**: o painel para adicionar (`?novo=AAAA-MM-DD.almoco`) e o painel de uma entrada (`?entrada=ID`) são controlados por parâmetros do URL. Assim funcionam sem JavaScript e o botão "voltar" do telemóvel fecha-os.
-- **Cookie `secure`**: só é ativado quando a app é servida por HTTPS (conforme o `ORIGIN`/`PROTOCOL_HEADER`). Assim é possível testar em `http://IP-local:4004`, porque com `secure` o browser descartaria o cookie.
+- **Cookie `secure`**: só é ativado quando o browser está mesmo a usar HTTPS (pelo cabeçalho `Origin` ou pelo `X-Forwarded-Proto`). Assim é possível usar a app em `http://IP-local:4004`, porque com `secure` o browser descartaria o cookie.
+- **Proteção CSRF**: a verificação do SvelteKit, que só aceita exatamente o `ORIGIN`, foi substituída por uma verificação própria em `hooks.server.js`, que aceita o host por onde a app está a ser acedida.
+- **Pessoa da refeição**: ao agendar escolhe-se uma pessoa ou "Ambos" (com mais de 2 pessoas, "Todos"). Por omissão fica a pessoa com sessão iniciada. As refeições de todos mostram uma faixa com as cores de todas as pessoas.
+- **Cores**: são atribuídas automaticamente ao criar cada conta e podem ser mudadas em Definições → Perfil.
+- **Hora a partir da qual uma refeição fica "Por confirmar"**: pequeno-almoço às 11h, lanche da manhã às 12h, almoço às 15h, lanche da tarde às 18h e jantar às 22h.
 - **Sessões**: duram 1 ano e são renovadas, no máximo uma vez por dia, quando a app é usada. Mudar a palavra-passe termina as outras sessões do utilizador.
 - **Pesquisa e filtros do inventário**: são feitos no browser e ignoram maiúsculas e acentos ("feijao" encontra "Feijão"). Os filtros ficam refletidos no URL.
 - **Arquivar e apagar**: a lista tem "Arquivar". Um item arquivado pode ser reposto ou apagado definitivamente na página do item. As entradas do calendário mantêm o nome do item apagado.

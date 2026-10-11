@@ -9,7 +9,7 @@ services:
     ports:
       - "4004:4004"
     environment:
-      ORIGIN: https://marmita.exemplo.pt # URL pública (obrigatório para os form actions / CSRF)
+      ORIGIN: https://marmita.exemplo.pt # URL pública (opcional)
       TZ: Europe/Lisbon
     volumes:
       - ./data:/data

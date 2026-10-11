@@ -4,16 +4,35 @@
 	import { page } from '$app/state';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import ItemPicker from '$lib/components/ItemPicker.svelte';
-	import { SLOTS, labelOf } from '$lib/constants.js';
-	import { addDays, dayMonth, isISODate, mondayOf, weekDays, weekRange, weekdayName, weekdayShort, weekdayTitle } from '$lib/dates.js';
+	import PersonPicker from '$lib/components/PersonPicker.svelte';
+	import { SLOTS, SLOT_VALUES, labelOf } from '$lib/constants.js';
+	import {
+		addDays,
+		dayMonth,
+		isISODate,
+		weekDays,
+		weekRange,
+		weekStartOf,
+		weekdayName,
+		weekdayShort,
+		weekdayTitle
+	} from '$lib/dates.js';
 
 	let { data, form } = $props();
 
 	/** @typedef {(typeof data.entries)[number]} Entry */
 
-	const days = $derived(weekDays(data.monday));
-	const thisMonday = $derived(mondayOf(data.today));
-	const weekHref = $derived(`/?w=${data.monday}`);
+	const days = $derived(weekDays(data.start));
+	const thisWeek = $derived(weekStartOf(data.today));
+	const weekHref = $derived(`/?w=${data.start}`);
+	const everyone = $derived(data.users.length === 2 ? 'Ambos' : 'Todos');
+	/** Faixa das refeições para todos: as cores de todas as pessoas. */
+	const bothStripe = $derived.by(() => {
+		const colors = data.users.map((u) => u.color);
+		if (colors.length < 2) return colors[0] ?? 'var(--text-muted)';
+		const step = 100 / colors.length;
+		return `linear-gradient(${colors.map((c, i) => `${c} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
+	});
 
 	/** Entradas agrupadas por "data.slot". */
 	const bySlot = $derived.by(() => {
@@ -28,7 +47,7 @@
 		const raw = page.url.searchParams.get('novo');
 		if (!raw) return null;
 		const [date, slot] = raw.split('.');
-		return isISODate(date) && (slot === 'almoco' || slot === 'jantar') ? { date, slot } : null;
+		return isISODate(date) && SLOT_VALUES.includes(/** @type {any} */ (slot)) ? { date, slot } : null;
 	});
 
 	const openEntry = $derived.by(() => {
@@ -44,6 +63,12 @@
 
 	/** @param {string} iso */
 	const dayLabel = (iso) => `${weekdayShort(iso)}, ${dayMonth(iso)}`;
+
+	/** Cor da pessoa (ou neutra quando é para todos). @param {{ person_color: string | null }} e */
+	const personStyle = (e) => `--person: ${e.person_color || 'var(--text-muted)'}`;
+
+	/** @param {{ person_name: string | null }} e */
+	const personLabel = (e) => e.person_name ?? everyone;
 
 	// ——— Formulário de nova entrada ———
 	/** @type {number | null} */
@@ -112,13 +137,21 @@
 
 <main class="page">
 	<header class="page-header week-header">
-		<h1>Semana de <span class="nowrap">{weekRange(data.monday)}</span></h1>
+		<h1>Semana de <span class="nowrap">{weekRange(data.start)}</span></h1>
 		<nav class="row" aria-label="Navegar semanas">
-			<a class="btn icon" href="/?w={addDays(data.monday, -7)}" aria-label="Semana anterior" data-sveltekit-noscroll>‹</a>
-			<a class="btn" href="/" aria-disabled={data.monday === thisMonday} class:current={data.monday === thisMonday}>Hoje</a>
-			<a class="btn icon" href="/?w={addDays(data.monday, 7)}" aria-label="Semana seguinte" data-sveltekit-noscroll>›</a>
+			<a class="btn icon" href="/?w={addDays(data.start, -7)}" aria-label="Semana anterior" data-sveltekit-noscroll>‹</a>
+			<a class="btn" href="/" aria-disabled={data.start === thisWeek} class:current={data.start === thisWeek}>Hoje</a>
+			<a class="btn icon" href="/?w={addDays(data.start, 7)}" aria-label="Semana seguinte" data-sveltekit-noscroll>›</a>
 		</nav>
 	</header>
+
+	{#if data.users.length > 1}
+		<ul class="legend" aria-label="Pessoas">
+			{#each data.users as u (u.id)}
+				<li style="--person: {u.color}"><span class="dot" aria-hidden="true"></span>{u.display_name}</li>
+			{/each}
+		</ul>
+	{/if}
 
 	{#if data.pending.length}
 		<details class="pending card" open={data.pending.length <= 5}>
@@ -128,23 +161,23 @@
 			</summary>
 			<ul>
 				{#each data.pending as e (e.id)}
-					<li>
+					<li style={personStyle(e)}>
 						<a class="what" href={entryHref(e.id)} data-sveltekit-noscroll>
 							<strong>{e.title}</strong>
 							<span class="muted small">
-								{[dayLabel(e.date), labelOf(SLOTS, e.slot), e.units > 1 ? `${e.units} doses` : '']
+								{[dayLabel(e.date), labelOf(SLOTS, e.slot), personLabel(e), e.units > 1 ? `${e.units} doses` : '']
 									.filter(Boolean)
 									.join(' · ')}
 							</span>
 						</a>
 						<div class="row">
 							<form method="POST" action="?/status" use:enhance={submit()}>
-								<input type="hidden" name="w" value={data.monday} />
+								<input type="hidden" name="w" value={data.start} />
 								<input type="hidden" name="id" value={e.id} />
 								<button class="btn small ok" name="status" value="eaten">Comido</button>
 							</form>
 							<form method="POST" action="?/status" use:enhance={submit()}>
-								<input type="hidden" name="w" value={data.monday} />
+								<input type="hidden" name="w" value={data.start} />
 								<input type="hidden" name="id" value={e.id} />
 								<button class="btn small" name="status" value="skipped">Não comido</button>
 							</form>
@@ -155,7 +188,7 @@
 		</details>
 	{/if}
 
-	<div class="week">
+	<div class="week" style="--both: {bothStripe}">
 		{#each days as day (day)}
 			{@const isToday = day === data.today}
 			<section class="day card" class:today={isToday} class:past={day < data.today} aria-labelledby="d-{day}">
@@ -166,36 +199,41 @@
 				</h2>
 				{#each SLOTS as slot (slot.value)}
 					{@const list = bySlot[`${day}.${slot.value}`] ?? []}
-					<div class="slot">
-						<h3 class="slot-name">{slot.label}</h3>
+					<div class="slot" class:minor={slot.minor}>
+						<div class="slot-head">
+							<h3 class="slot-name">
+								<span class="long">{slot.label}</span><span class="short" aria-hidden="true">{slot.short}</span>
+							</h3>
+							<a
+								class="add"
+								href={addHref(day, slot.value)}
+								data-sveltekit-noscroll
+								aria-label="Adicionar ao {slot.label.toLowerCase()} de {weekdayName(day)}, {dayMonth(day)}"
+							>
+								+
+							</a>
+						</div>
 						{#if list.length}
 							<ul class="entries">
 								{#each list as e (e.id)}
 									<li>
 										<a
 											class="entry {e.status}"
+											class:everyone={e.person_id == null}
 											class:over={e.status === 'planned' && e.item_id != null && (e.item_free ?? 0) < 0}
+											style={personStyle(e)}
 											href={entryHref(e.id)}
 											data-sveltekit-noscroll
 										>
 											<span class="icon" aria-hidden="true">{statusIcon(e)}</span>
 											<span class="title">{e.title}</span>
 											{#if e.units > 1}<span class="units">×{e.units}</span>{/if}
-											<span class="visually-hidden">({statusLabel(e)})</span>
+											<span class="visually-hidden">({personLabel(e)}, {statusLabel(e)})</span>
 										</a>
 									</li>
 								{/each}
 							</ul>
 						{/if}
-						<a
-							class="add"
-							class:empty={!list.length}
-							href={addHref(day, slot.value)}
-							data-sveltekit-noscroll
-							aria-label="Adicionar ao {slot.label.toLowerCase()} de {weekdayName(day)}, {dayMonth(day)}"
-						>
-							+
-						</a>
 					</div>
 				{/each}
 			</section>
@@ -210,11 +248,13 @@
 		closeHref={weekHref}
 	>
 		<form method="POST" action="?/add" class="stack" use:enhance={submit(confirmAdd)}>
-			<input type="hidden" name="w" value={data.monday} />
+			<input type="hidden" name="w" value={data.start} />
 			<input type="hidden" name="date" value={addTarget.date} />
 			<input type="hidden" name="slot" value={addTarget.slot} />
 
 			{#if form?.error}<p class="alert" role="alert">{form.error}</p>{/if}
+
+			<PersonPicker users={data.users} value={data.user?.id ?? null} />
 
 			<ItemPicker items={data.items} today={data.today} bind:selected={selectedItem} />
 
@@ -224,7 +264,7 @@
 					type="text"
 					name="title"
 					maxlength="100"
-					placeholder="Ex.: Jantar fora, Pizza"
+					placeholder="Ex.: Jantar fora, Pizza, Iogurte"
 					bind:value={freeText}
 					oninput={() => (selectedItem = null)}
 				/>
@@ -257,6 +297,7 @@
 			{#if form?.error}<p class="alert" role="alert">{form.error}</p>{/if}
 
 			<div class="row">
+				<span class="person-badge" style={personStyle(e)}><span class="dot" aria-hidden="true"></span>{personLabel(e)}</span>
 				<span class="badge" class:ok={e.status === 'eaten'} class:accent={e.status === 'planned'}>
 					{e.status === 'planned' ? 'Planeada' : e.status === 'eaten' ? 'Comida' : 'Não comida'}
 				</span>
@@ -269,7 +310,7 @@
 			{#if e.notes}<p class="note">{e.notes}</p>{/if}
 
 			<form method="POST" action="?/status" class="status-actions" use:enhance={submit()}>
-				<input type="hidden" name="w" value={data.monday} />
+				<input type="hidden" name="w" value={data.start} />
 				<input type="hidden" name="id" value={e.id} />
 				{#if e.status === 'planned'}
 					<button class="btn ok" name="status" value="eaten">✓ Comido</button>
@@ -282,8 +323,9 @@
 			<details class="sub">
 				<summary>Editar</summary>
 				<form method="POST" action="?/update" class="stack" use:enhance={submit()}>
-					<input type="hidden" name="w" value={data.monday} />
+					<input type="hidden" name="w" value={data.start} />
 					<input type="hidden" name="id" value={e.id} />
+					<PersonPicker users={data.users} value={e.person_id} />
 					{#if e.item_id == null}
 						<label class="field">
 							<span>Texto</span>
@@ -307,7 +349,7 @@
 			<details class="sub">
 				<summary>Mover</summary>
 				<form method="POST" action="?/move" class="stack" use:enhance={submit()}>
-					<input type="hidden" name="w" value={data.monday} />
+					<input type="hidden" name="w" value={data.start} />
 					<input type="hidden" name="id" value={e.id} />
 					<div class="grid-2">
 						<label class="field">
@@ -334,7 +376,7 @@
 					action="?/remove"
 					use:enhance={submit(() => confirm(`Remover "${e.title}" do plano?`))}
 				>
-					<input type="hidden" name="w" value={data.monday} />
+					<input type="hidden" name="w" value={data.start} />
 					<input type="hidden" name="id" value={e.id} />
 					<button class="btn danger small">Remover</button>
 				</form>
@@ -448,40 +490,81 @@
 
 	.slot {
 		display: flex;
-		flex-wrap: wrap;
-		align-items: flex-start;
+		flex-direction: column;
 		gap: 6px;
-		padding-top: 8px;
+		padding-top: 6px;
 		border-top: 1px dashed var(--border);
 	}
 
+	.slot-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+
 	.slot-name {
-		width: 100%;
 		font-size: 0.75rem;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--text-muted);
 	}
 
+	.slot:not(.minor) .slot-name {
+		color: var(--text);
+	}
+
 	.entries {
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		display: contents;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	.entries li {
+		max-width: 100%;
 	}
 
 	.entry {
+		--person: var(--text-muted);
+		--stripe: var(--person);
+		position: relative;
+		overflow: hidden;
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
 		min-height: 44px;
 		max-width: 100%;
-		padding: 6px 12px;
+		padding: 6px 12px 6px 15px;
 		border-radius: var(--radius-sm);
-		background: var(--accent-soft);
+		background: color-mix(in srgb, var(--person) 16%, var(--surface));
 		color: var(--text);
 		text-decoration: none;
 		font-weight: 600;
+	}
+
+	.entry::before {
+		content: '';
+		position: absolute;
+		inset: 0 auto 0 0;
+		width: 5px;
+		background: var(--stripe);
+	}
+
+	.entry.everyone {
+		--stripe: var(--both);
+		background: var(--surface-2);
+	}
+
+	.slot-name .short {
+		display: none;
+	}
+
+	.slot.minor .entry {
+		min-height: 40px;
+		font-size: 0.92rem;
 	}
 
 	.entry .title {
@@ -497,17 +580,17 @@
 		font-size: 0.85rem;
 	}
 
-	.entry.eaten {
-		background: var(--ok-soft);
-	}
-
 	.entry.eaten .icon {
 		color: var(--ok);
+		font-weight: 800;
+	}
+
+	.entry.eaten .title {
+		opacity: 0.75;
 	}
 
 	.entry.skipped {
-		background: var(--surface-2);
-		color: var(--text-muted);
+		opacity: 0.6;
 	}
 
 	.entry.skipped .title {
@@ -523,20 +606,57 @@
 	}
 
 	.add {
+		flex: none;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-width: 44px;
-		min-height: 44px;
+		width: 44px;
+		height: 36px;
 		border-radius: var(--radius-sm);
 		border: 1px dashed var(--border);
 		color: var(--text-muted);
 		text-decoration: none;
-		font-size: 1.3rem;
+		font-size: 1.2rem;
 	}
 
-	.add.empty {
-		flex: 1;
+	/* ——— Legenda e pessoa ——— */
+	.legend {
+		list-style: none;
+		margin: -6px 0 14px;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px 14px;
+		font-size: 0.85rem;
+		color: var(--text-muted);
+	}
+
+	.legend li,
+	.person-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.dot {
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		background: var(--person);
+		flex: none;
+	}
+
+	.person-badge {
+		--person: var(--text-muted);
+		padding: 2px 10px;
+		border-radius: 999px;
+		font-size: 0.78rem;
+		font-weight: 600;
+		background: color-mix(in srgb, var(--person) 16%, var(--surface));
+	}
+
+	.pending li {
+		border-left: 5px solid var(--person, transparent);
 	}
 
 	/* ——— Painel de entrada ——— */
@@ -589,12 +709,12 @@
 		.week {
 			display: grid;
 			grid-template-columns: repeat(7, minmax(0, 1fr));
-			grid-template-rows: auto auto auto;
+			grid-template-rows: repeat(6, auto);
 			gap: 8px;
 		}
 
 		.day {
-			grid-row: span 3;
+			grid-row: span 6;
 			display: grid;
 			grid-template-rows: subgrid;
 			gap: 8px;
@@ -606,18 +726,36 @@
 			gap: 0;
 		}
 
-		.slot {
-			align-content: flex-start;
+		.entries li,
+		.entry {
+			width: 100%;
 		}
 
 		.entry {
-			width: 100%;
 			font-size: 0.9rem;
-			padding: 6px 8px;
+			padding: 6px 8px 6px 12px;
+		}
+
+		.slot-name {
+			font-size: 0.68rem;
+		}
+
+		.slot-name .long {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip: rect(0 0 0 0);
+			white-space: nowrap;
+		}
+
+		.slot-name .short {
+			display: inline;
 		}
 
 		.add {
-			width: 100%;
+			width: 36px;
+			height: 30px;
 		}
 	}
 </style>

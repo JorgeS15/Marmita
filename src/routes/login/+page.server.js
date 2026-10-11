@@ -35,7 +35,7 @@ export const actions = {
 		}
 
 		clearFailedLogins(ip, username);
-		cookies.set(SESSION_COOKIE, createSession(user.id), cookieOptions(url));
+		cookies.set(SESSION_COOKIE, createSession(user.id), cookieOptions({ request, url }));
 		redirect(303, safeNext(url.searchParams.get('next')));
 	}
 };

@@ -12,7 +12,7 @@ export const actions = {
 			const id = await createFirstUser(data);
 			if (!id) redirect(303, '/login');
 			const token = createSession(id);
-			cookies.set(SESSION_COOKIE, token, cookieOptions(url));
+			cookies.set(SESSION_COOKIE, token, cookieOptions({ request, url }));
 			redirect(303, '/');
 		})
 };

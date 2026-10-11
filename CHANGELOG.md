@@ -3,6 +3,23 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.2.0] - 2026-10-11
+
+### Added
+- Novas refeições no calendário: pequeno-almoço, lanche da manhã e lanche da tarde, além do almoço e do jantar. Também passam a "Por confirmar" depois das 11h, das 12h e das 18h, respetivamente.
+- Novas categorias no inventário: Pequeno-almoço e Lanche.
+- Cada refeição planeada é atribuída a uma pessoa da casa (ou a ambas), escolhida ao agendar e editável depois.
+- Cada pessoa tem uma cor, que se escolhe em Definições. As refeições aparecem no calendário com a cor da pessoa e há uma legenda no topo da semana.
+- Variável `ALLOWED_ORIGINS` (opcional) para aceitar formulários de outros endereços.
+
+### Changed
+- A semana começa ao domingo (domingo a sábado).
+- O `ORIGIN` passa a ser opcional.
+
+### Fixed
+- Já é possível criar conta e entrar através de `http://localhost:4004` ou do IP da rede, mesmo com o `ORIGIN` definido para o domínio HTTPS. Antes, os formulários falhavam com 403. A proteção CSRF passou a aceitar o endereço por onde a app é acedida.
+- O cookie de sessão só é marcado `secure` quando o browser está mesmo a usar HTTPS.
+
 ## [1.1.0] - 2026-10-11
 
 ### Added

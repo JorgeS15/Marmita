@@ -35,10 +35,9 @@ export function daysBetween(a, b) {
 	return Math.round((toUTC(b).getTime() - toUTC(a).getTime()) / DAY_MS);
 }
 
-/** Segunda-feira da semana que contém `iso`. @param {string} iso */
-export function mondayOf(iso) {
-	const dow = (toUTC(iso).getUTCDay() + 6) % 7; // 0 = segunda
-	return addDays(iso, -dow);
+/** Primeiro dia (domingo) da semana que contém `iso`. @param {string} iso */
+export function weekStartOf(iso) {
+	return addDays(iso, -toUTC(iso).getUTCDay()); // getUTCDay: 0 = domingo
 }
 
 /**
@@ -103,20 +102,20 @@ export function fullDate(iso) {
 	return `${dayMonth(iso)} ${iso.slice(0, 4)}`;
 }
 
-/** "13–19 out" ou "29 set – 5 out" @param {string} monday */
-export function weekRange(monday) {
-	const sunday = addDays(monday, 6);
-	const a = toUTC(monday);
-	const b = toUTC(sunday);
+/** "12–18 out" ou "28 set – 4 out" @param {string} start primeiro dia (domingo) */
+export function weekRange(start) {
+	const end = addDays(start, 6);
+	const a = toUTC(start);
+	const b = toUTC(end);
 	if (a.getUTCMonth() === b.getUTCMonth()) {
 		return `${a.getUTCDate()}–${b.getUTCDate()} ${MONTHS[b.getUTCMonth()]}`;
 	}
-	return `${dayMonth(monday)} – ${dayMonth(sunday)}`;
+	return `${dayMonth(start)} – ${dayMonth(end)}`;
 }
 
-/** Os 7 dias (segunda a domingo) da semana que começa em `monday`. @param {string} monday */
-export function weekDays(monday) {
-	return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+/** Os 7 dias (domingo a sábado) da semana que começa em `start`. @param {string} start */
+export function weekDays(start) {
+	return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
 
 /**
