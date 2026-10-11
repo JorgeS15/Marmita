@@ -108,7 +108,7 @@
 	const personLabel = (e) => e.person_name ?? everyone;
 
 	// ——— Formulário de nova entrada ———
-	/** @type {number | null} */
+	/** @type {number | string | null} id do item, ou "p<id>" para uma preparação */
 	let selectedItem = $state(null);
 	let freeText = $state('');
 	let units = $state(1);
@@ -161,6 +161,7 @@
 	function statusIcon(e) {
 		if (e.status === 'eaten') return '✓';
 		if (e.status === 'skipped') return '✕';
+		if (e.prep_id != null && e.item_id == null) return '🍳';
 		if (e.item_id != null && (e.item_free ?? 0) < 0) return '!';
 		return '';
 	}
@@ -188,6 +189,29 @@
 				<li style="--person: {u.color}"><span class="dot" aria-hidden="true"></span>{u.display_name}</li>
 			{/each}
 		</ul>
+	{/if}
+
+	{#if data.toThaw.length}
+		<section class="thaw card" aria-labelledby="thaw-title">
+			<h2 id="thaw-title">🧊 Tirar do congelador</h2>
+			<ul>
+				{#each data.toThaw as e (e.id)}
+					<li style={personStyle(e)}>
+						<a class="what" href={entryHref(e.id)} data-sveltekit-noscroll>
+							<strong>{e.title}</strong>
+							<span class="muted small">
+								{e.date === data.today ? 'Hoje' : 'Amanhã'} · {label(e.slot)}{e.units > 1 ? ` · ${e.units} doses` : ''}
+							</span>
+						</a>
+						<form method="POST" action="?/thaw" use:enhance={submit()}>
+							<input type="hidden" name="w" value={data.start} />
+							<input type="hidden" name="id" value={e.id} />
+							<button class="btn small">Já tirei</button>
+						</form>
+					</li>
+				{/each}
+			</ul>
+		</section>
 	{/if}
 
 	{#if data.pending.length}
@@ -329,7 +353,12 @@
 
 			<PersonPicker users={data.users} value={data.user?.id ?? null} />
 
-			<ItemPicker items={data.items} today={data.today} bind:selected={selectedItem} />
+			<ItemPicker
+				items={data.items}
+				preps={data.openPreps.filter((pr) => pr.date <= addTarget.date && pr.date >= addDays(addTarget.date, -7))}
+				today={data.today}
+				bind:selected={selectedItem}
+			/>
 
 			<label class="field">
 				<span>Ou texto livre</span>
@@ -539,6 +568,27 @@
 				{#if e.item_id == null}<span class="badge">Texto livre</span>{/if}
 			</div>
 
+			{#if e.prep_id != null && e.item_id == null}
+				<p class="alert info small" style="margin:0">
+					🍳 Vem da preparação de {e.prep_date ? dayLabel(e.prep_date) : '—'}, ainda por fazer. Quando a
+					confirmares, esta refeição passa a contar no inventário.
+				</p>
+			{/if}
+
+			{#if e.status === 'planned' && e.item_location === 'congelador'}
+				<form method="POST" action="?/thaw" class="row" use:enhance={submit()}>
+					<input type="hidden" name="w" value={data.start} />
+					<input type="hidden" name="id" value={e.id} />
+					{#if e.thawed}
+						<span class="muted small">🧊 Já tirado do congelador.</span>
+						<input type="hidden" name="undo" value="1" />
+						<button class="btn small ghost">Desfazer</button>
+					{:else}
+						<button class="btn small">🧊 Já tirei do congelador</button>
+					{/if}
+				</form>
+			{/if}
+
 			{#if e.notes}
 				<div class="note-block">
 					<h3>Nota da refeição</h3>
@@ -644,6 +694,48 @@
 
 	.week-header .btn.current {
 		opacity: 0.55;
+	}
+
+	/* ——— Tirar do congelador ——— */
+	.thaw {
+		margin-bottom: 16px;
+		background: var(--info-soft);
+		border-color: transparent;
+		padding: 12px 14px;
+	}
+
+	.thaw h2 {
+		font-size: 1rem;
+		color: var(--info);
+		margin-bottom: 8px;
+	}
+
+	.thaw ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.thaw li {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		padding: 8px 10px;
+		border-radius: var(--radius-sm);
+		background: var(--surface);
+		border-left: 5px solid var(--person, transparent);
+	}
+
+	.thaw .what {
+		display: flex;
+		flex-direction: column;
+		color: inherit;
+		text-decoration: none;
+		min-width: 0;
 	}
 
 	/* ——— Por confirmar ——— */

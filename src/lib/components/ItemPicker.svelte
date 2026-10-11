@@ -1,16 +1,17 @@
 <script>
 	import { CATEGORIES, LOCATIONS, labelOf, normalize } from '$lib/constants.js';
-	import { agoLabel } from '$lib/dates.js';
+	import { agoLabel, dayMonth, weekdayShort } from '$lib/dates.js';
 
 	/**
 	 * Lista de itens do inventário para escolher (rádio). Mostra as doses livres.
 	 * @type {{
 	 *   items: { id: number, name: string, category: string, location: string, stored_on: string | null, quantity: number, free: number }[],
+	 *   preps?: { id: number, date: string, title: string }[],
 	 *   today: string,
-	 *   selected?: number | null
+	 *   selected?: number | string | null
 	 * }}
 	 */
-	let { items, today, selected = $bindable(null) } = $props();
+	let { items, preps = [], today, selected = $bindable(null) } = $props();
 
 	let q = $state('');
 	const filtered = $derived.by(() => {
@@ -19,11 +20,31 @@
 		// Mais antigo primeiro; os sem doses livres vão para o fim.
 		return [...list].sort((a, b) => Number(a.free <= 0) - Number(b.free <= 0));
 	});
+	const filteredPreps = $derived.by(() => {
+		const needle = normalize(q);
+		return needle ? preps.filter((p) => normalize(p.title).includes(needle)) : preps;
+	});
 </script>
 
 <div class="picker">
 	<label class="visually-hidden" for="picker-q">Pesquisar no inventário</label>
 	<input id="picker-q" type="search" placeholder="Pesquisar no inventário…" bind:value={q} autocomplete="off" />
+
+	{#if filteredPreps.length}
+		<ul role="radiogroup" aria-label="Preparações por fazer" class="preps">
+			{#each filteredPreps as p (p.id)}
+				<li>
+					<label class="option">
+						<input type="radio" name="item_id" value={`p${p.id}`} bind:group={selected} />
+						<span class="text">
+							<span class="name">🍳 {p.title}</span>
+							<span class="muted small">Por preparar · {weekdayShort(p.date)}, {dayMonth(p.date)}</span>
+						</span>
+					</label>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 
 	{#if items.length === 0}
 		<p class="muted small">O inventário está vazio. Escreve abaixo o que vais comer.</p>
@@ -57,6 +78,10 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
+	}
+
+	ul.preps {
+		max-height: none;
 	}
 
 	ul {

@@ -14,11 +14,12 @@ import { guard } from '$lib/server/forms.js';
 import { oneOf, text } from '$lib/server/validate.js';
 import { PERSON_COLORS } from '$lib/constants.js';
 import { setSetting } from '$lib/server/settings.js';
+import { listBackups } from '$lib/server/backup.js';
 import { validateNewUser, validatePassword } from '$lib/server/users.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export function load() {
-	return { users: listUsers() };
+	return { users: listUsers(), backups: listBackups() };
 }
 
 /** @type {import('./$types').Actions} */

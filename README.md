@@ -50,6 +50,7 @@ No primeiro acesso aparece o ecrã **Setup** para criar a primeira conta. A segu
 | `PORT` | `4004` | Porta HTTP. |
 | `DATA_DIR` | `/data` | Pasta onde fica a base de dados `marmita.db`. |
 | `TZ` | `Europe/Lisbon` | Fuso horário usado para "hoje" e para "por confirmar". |
+| `BACKUP_KEEP` | `14` | Número de cópias diárias da base de dados guardadas em `data/backups/` (`0` desliga). |
 
 A proteção CSRF aceita pedidos cuja origem coincide com o host do pedido (`Host` ou `X-Forwarded-Host`), com o `ORIGIN` ou com o `ALLOWED_ORIGINS`. Pedidos de outros sites são rejeitados com 403. Por isso a mesma instalação funciona em `https://marmita.exemplo.pt`, `http://localhost:4004` e `http://192.168.1.x:4004`.
 
@@ -91,17 +92,24 @@ Para limitar as tentativas de login por IP real atrás do proxy, define `ADDRESS
 
 ### Backups
 
-Os dados estão todos em `data/marmita.db`. Como a base de dados usa WAL, há duas formas seguras de fazer a cópia:
+Os dados estão todos em `data/marmita.db`.
+
+- **Automáticos**: a app faz uma cópia por dia em `data/backups/marmita-AAAA-MM-DD.db` e guarda as últimas 14 (`BACKUP_KEEP`).
+- **Manual**: em **Definições → Descarregar base de dados** obténs uma cópia completa e consistente, feita na hora.
+- Também há **Definições → Exportar JSON**, legível, mas que não serve para repor.
+
+Para **repor** uma cópia:
 
 ```sh
-# a quente, com o sqlite3 instalado no host
-sqlite3 data/marmita.db ".backup marmita-$(date +%F).db"
-
-# ou parando o container
-docker compose stop && cp data/marmita.db* /backups/ && docker compose start
+docker compose stop
+cp data/marmita.db data/marmita.db.antes-de-repor
+rm -f data/marmita.db-wal data/marmita.db-shm      # obrigatório
+cp data/backups/marmita-2026-10-11.db data/marmita.db   # ou o ficheiro descarregado
+sudo chown 1000:1000 data/marmita.db
+docker compose start
 ```
 
-Também é possível descarregar um export JSON dos itens e do plano em **Definições → Exportar JSON**.
+Para levar as cópias para fora do servidor, basta copiar a pasta `data/backups/` (por exemplo, com `rsync` ou com o Syncthing).
 
 ### Atualizar
 
