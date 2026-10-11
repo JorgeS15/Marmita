@@ -1,5 +1,6 @@
 import { scrypt, randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { db } from './db.js';
+import { PERSON_COLORS } from '$lib/constants.js';
 
 const SCRYPT = { N: 16384, r: 8, p: 1 };
 const KEY_LEN = 64;
@@ -51,7 +52,7 @@ const isoIn = (ms) => new Date(Date.now() + ms).toISOString();
 // ——— Utilizadores ———
 
 /**
- * @typedef {{ id: number, username: string, display_name: string, created_at: string }} User
+ * @typedef {{ id: number, username: string, display_name: string, color: string, created_at: string }} User
  */
 
 export function userCount() {
@@ -62,7 +63,7 @@ export function userCount() {
 /** @returns {User[]} */
 export function listUsers() {
 	return /** @type {any} */ (
-		db().prepare('SELECT id, username, display_name, created_at FROM users ORDER BY id').all()
+		db().prepare('SELECT id, username, display_name, color, created_at FROM users ORDER BY id').all()
 	);
 }
 
@@ -87,9 +88,21 @@ export function findUserById(id) {
 export async function createUser({ username, display_name, password }) {
 	const hash = await hashPassword(password);
 	const res = db()
-		.prepare('INSERT INTO users (username, display_name, password_hash) VALUES (?, ?, ?)')
-		.run(username, display_name, hash);
+		.prepare('INSERT INTO users (username, display_name, password_hash, color) VALUES (?, ?, ?, ?)')
+		.run(username, display_name, hash, nextColor());
 	return Number(res.lastInsertRowid);
+}
+
+/** Primeira cor da paleta ainda não usada (ou a seguinte em ciclo). */
+function nextColor() {
+	const used = /** @type {{ color: string }[]} */ (db().prepare('SELECT color FROM users').all()).map((u) => u.color);
+	const free = PERSON_COLORS.find((c) => !used.includes(c.value));
+	return (free ?? PERSON_COLORS[used.length % PERSON_COLORS.length]).value;
+}
+
+/** @param {number} userId @param {string} color */
+export function setColor(userId, color) {
+	db().prepare('UPDATE users SET color = ? WHERE id = ?').run(color, userId);
 }
 
 /**
@@ -101,10 +114,10 @@ export async function createFirstUser({ username, display_name, password }) {
 	const hash = await hashPassword(password);
 	const res = db()
 		.prepare(
-			`INSERT INTO users (username, display_name, password_hash)
-			 SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM users)`
+			`INSERT INTO users (username, display_name, password_hash, color)
+			 SELECT ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM users)`
 		)
-		.run(username, display_name, hash);
+		.run(username, display_name, hash, PERSON_COLORS[0].value);
 	return res.changes ? Number(res.lastInsertRowid) : null;
 }
 
@@ -133,14 +146,14 @@ export function createSession(userId) {
 /**
  * Valida o token. Devolve o utilizador e se a sessão foi renovada.
  * @param {string} token
- * @returns {{ user: { id: number, username: string, display_name: string }, sessionId: string, renewed: boolean } | null}
+ * @returns {{ user: { id: number, username: string, display_name: string, color: string }, sessionId: string, renewed: boolean } | null}
  */
 export function validateSession(token) {
 	const sessionId = hashToken(token);
 	const row = /** @type {any} */ (
 		db()
 			.prepare(
-				`SELECT s.expires_at, u.id, u.username, u.display_name
+				`SELECT s.expires_at, u.id, u.username, u.display_name, u.color
 				 FROM sessions s JOIN users u ON u.id = s.user_id
 				 WHERE s.id = ?`
 			)
@@ -163,7 +176,7 @@ export function validateSession(token) {
 	}
 
 	return {
-		user: { id: row.id, username: row.username, display_name: row.display_name },
+		user: { id: row.id, username: row.username, display_name: row.display_name, color: row.color },
 		sessionId,
 		renewed
 	};
@@ -184,17 +197,31 @@ export function purgeExpiredSessions() {
 }
 
 /**
- * Opções do cookie de sessão. `secure` só quando o pedido chega por HTTPS
- * (via ORIGIN/PROTOCOL_HEADER), para permitir testes em http://IP-da-rede.
- * @param {URL} url
+ * O browser está a usar HTTPS? Usa o cabeçalho Origin (enviado em todos os POST),
+ * depois X-Forwarded-Proto (reverse proxy) e, por fim, o protocolo do URL.
+ * Assim a mesma instalação funciona por https://domínio, http://localhost e http://IP.
+ * @param {{ request: Request, url: URL }} event
+ */
+function isHttps({ request, url }) {
+	const origin = request.headers.get('origin');
+	if (origin) return origin.startsWith('https:');
+	const forwarded = request.headers.get('x-forwarded-proto');
+	if (forwarded) return forwarded.split(',')[0].trim() === 'https';
+	return url.protocol === 'https:';
+}
+
+/**
+ * Opções do cookie de sessão. `secure` só quando o pedido chega por HTTPS,
+ * senão o browser descartaria o cookie em http://IP-da-rede.
+ * @param {{ request: Request, url: URL }} event
  * @returns {{ path: string, httpOnly: boolean, sameSite: 'lax', secure: boolean, maxAge: number }}
  */
-export function cookieOptions(url) {
+export function cookieOptions(event) {
 	return {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		secure: url.protocol === 'https:',
+		secure: isHttps(event),
 		maxAge: SESSION_MAX_AGE
 	};
 }

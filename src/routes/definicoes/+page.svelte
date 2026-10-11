@@ -1,5 +1,6 @@
 <script>
 	import { enhance } from '$app/forms';
+	import { PERSON_COLORS } from '$lib/constants.js';
 
 	let { data, form } = $props();
 
@@ -28,7 +29,18 @@
 					<span>Nome a mostrar</span>
 					<input type="text" name="display_name" required maxlength="60" value={data.user?.display_name} />
 				</label>
-				<button class="btn">Guardar nome</button>
+				<fieldset class="colors">
+					<legend>Cor no calendário</legend>
+					<div class="swatches">
+						{#each PERSON_COLORS as c (c.value)}
+							<label class="swatch" style="--c: {c.value}" title={c.label}>
+								<input type="radio" name="color" value={c.value} checked={data.user?.color === c.value} />
+								<span class="visually-hidden">{c.label}</span>
+							</label>
+						{/each}
+					</div>
+				</fieldset>
+				<button class="btn">Guardar perfil</button>
 			</form>
 		</section>
 
@@ -57,7 +69,10 @@
 			<h2 id="users">Pessoas da casa</h2>
 			<ul class="users">
 				{#each data.users as u (u.id)}
-					<li><strong>{u.display_name}</strong> <span class="muted small">@{u.username}</span></li>
+					<li>
+						<span class="dot" style="background: {u.color}" aria-hidden="true"></span>
+						<strong>{u.display_name}</strong> <span class="muted small">@{u.username}</span>
+					</li>
 				{/each}
 			</ul>
 			<details open={!!msg('addUser')}>
@@ -98,7 +113,6 @@
 			<form method="POST" action="/logout">
 				<button class="btn danger block">Terminar sessão</button>
 			</form>
-			<p class="muted small" style="margin:0;text-align:center">Marmita v{data.version}</p>
 		</section>
 	</div>
 </main>
@@ -111,6 +125,65 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
+	}
+
+	.users li {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.dot {
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		flex: none;
+	}
+
+	.colors {
+		border: 0;
+		margin: 0;
+		padding: 0;
+	}
+
+	.colors legend {
+		font-weight: 600;
+		font-size: 0.9rem;
+		padding: 0;
+		margin-bottom: 6px;
+	}
+
+	.swatches {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+	}
+
+	.swatch {
+		width: 44px;
+		height: 44px;
+		border-radius: 50%;
+		background: var(--c);
+		cursor: pointer;
+		display: grid;
+		place-items: center;
+		border: 3px solid transparent;
+	}
+
+	.swatch input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.swatch:has(input:checked) {
+		border-color: var(--surface);
+		box-shadow: 0 0 0 3px var(--c);
+	}
+
+	.swatch:has(input:focus-visible) {
+		outline: 3px solid var(--focus);
+		outline-offset: 4px;
 	}
 
 	summary {

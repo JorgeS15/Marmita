@@ -1,18 +1,21 @@
 import { db, transaction } from './db.js';
 import { addDays } from '$lib/dates.js';
-import { SLOT_DEADLINE_HOUR } from '$lib/constants.js';
+import { SLOT_DEADLINE_HOUR, SLOT_VALUES } from '$lib/constants.js';
 
 /**
  * @typedef {object} PlanEntry
  * @property {number} id
  * @property {string} date
- * @property {'almoco' | 'jantar'} slot
+ * @property {string} slot
  * @property {number} position
  * @property {number | null} item_id
  * @property {string | null} title
  * @property {number} units
  * @property {'planned' | 'eaten' | 'skipped'} status
  * @property {string} notes
+ * @property {number | null} person_id
+ * @property {string | null} person_name
+ * @property {string | null} person_color
  * @property {string | null} created_by_name
  * @property {string | null} updated_by_name
  * @property {number | null} item_free
@@ -22,22 +25,25 @@ import { SLOT_DEADLINE_HOUR } from '$lib/constants.js';
 
 const SELECT = `
 	SELECT p.id, p.date, p.slot, p.position, p.item_id, COALESCE(s.name, p.title) AS title,
-	       p.units, p.status, p.notes,
+	       p.units, p.status, p.notes, p.person_id,
+	       pu.display_name AS person_name, pu.color AS person_color,
 	       cu.display_name AS created_by_name, uu.display_name AS updated_by_name,
 	       s.free AS item_free, s.quantity AS item_quantity, s.archived AS item_archived
 	FROM plan_entries p
 	LEFT JOIN item_stock s ON s.id = p.item_id
+	LEFT JOIN users pu ON pu.id = p.person_id
 	LEFT JOIN users cu ON cu.id = p.created_by
 	LEFT JOIN users uu ON uu.id = p.updated_by`;
 
-const ORDER = `ORDER BY p.date, CASE p.slot WHEN 'almoco' THEN 0 ELSE 1 END, p.position, p.id`;
+const SLOT_ORDER = `CASE p.slot ${SLOT_VALUES.map((s, i) => `WHEN '${s}' THEN ${i}`).join(' ')} END`;
+const ORDER = `ORDER BY p.date, ${SLOT_ORDER}, p.position, p.id`;
 
-/** @param {string} monday @returns {PlanEntry[]} */
-export function listWeek(monday) {
+/** @param {string} start primeiro dia da semana @returns {PlanEntry[]} */
+export function listWeek(start) {
 	return /** @type {any} */ (
 		db()
 			.prepare(`${SELECT} WHERE p.date BETWEEN ? AND ? ${ORDER}`)
-			.all(monday, addDays(monday, 6))
+			.all(start, addDays(start, 6))
 	);
 }
 
@@ -52,16 +58,17 @@ export function getEntry(id) {
  * @returns {PlanEntry[]}
  */
 export function listPending(now) {
+	// Slots de hoje cuja hora-limite já passou.
+	const passed = Object.entries(SLOT_DEADLINE_HOUR)
+		.filter(([, hour]) => now.hour >= hour)
+		.map(([slot]) => slot);
+	const todayClause = passed.length
+		? `OR (p.date = ? AND p.slot IN (${passed.map(() => '?').join(', ')}))`
+		: '';
 	return /** @type {any} */ (
 		db()
-			.prepare(
-				`${SELECT}
-				 WHERE p.status = 'planned'
-				   AND (p.date < ?
-				        OR (p.date = ? AND ((p.slot = 'almoco' AND ? >= ?) OR (p.slot = 'jantar' AND ? >= ?))))
-				 ${ORDER} LIMIT 100`
-			)
-			.all(now.date, now.date, now.hour, SLOT_DEADLINE_HOUR.almoco, now.hour, SLOT_DEADLINE_HOUR.jantar)
+			.prepare(`${SELECT} WHERE p.status = 'planned' AND (p.date < ? ${todayClause}) ${ORDER} LIMIT 100`)
+			.all(now.date, ...(passed.length ? [now.date, ...passed] : []))
 	);
 }
 
@@ -76,7 +83,7 @@ function nextPosition(date, slot) {
 }
 
 /**
- * @param {{ date: string, slot: string, item_id: number | null, title: string | null, units: number, notes: string }} d
+ * @param {{ date: string, slot: string, item_id: number | null, title: string | null, units: number, notes: string, person_id: number | null }} d
  * @param {number} userId
  */
 export function addEntry(d, userId) {
@@ -91,10 +98,10 @@ export function addEntry(d, userId) {
 		}
 		const res = db()
 			.prepare(
-				`INSERT INTO plan_entries (date, slot, position, item_id, title, units, notes, created_by, updated_by)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+				`INSERT INTO plan_entries (date, slot, position, item_id, title, units, notes, person_id, created_by, updated_by)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			)
-			.run(d.date, d.slot, nextPosition(d.date, d.slot), d.item_id, title, d.units, d.notes, userId, userId);
+			.run(d.date, d.slot, nextPosition(d.date, d.slot), d.item_id, title, d.units, d.notes, d.person_id, userId, userId);
 		return Number(res.lastInsertRowid);
 	});
 }
@@ -115,10 +122,10 @@ function changeStock(itemId, delta) {
 }
 
 /**
- * Edita doses, notas e (no texto livre) o título.
+ * Edita doses, notas, pessoa e (no texto livre) o título.
  * Se a entrada já foi comida, o stock acompanha a diferença de doses.
  * @param {number} id
- * @param {{ units: number, notes: string, title?: string | null }} d
+ * @param {{ units: number, notes: string, person_id: number | null, title?: string | null }} d
  * @param {number} userId
  */
 export function updateEntry(id, d, userId) {
@@ -129,10 +136,10 @@ export function updateEntry(id, d, userId) {
 		const setTitle = e.item_id == null && d.title ? d.title : null;
 		db()
 			.prepare(
-				`UPDATE plan_entries SET units = ?, notes = ?, title = COALESCE(?, title),
+				`UPDATE plan_entries SET units = ?, notes = ?, person_id = ?, title = COALESCE(?, title),
 				   updated_by = ?, updated_at = datetime('now') WHERE id = ?`
 			)
-			.run(d.units, d.notes, setTitle, userId, id);
+			.run(d.units, d.notes, d.person_id, setTitle, userId, id);
 		return true;
 	});
 }

@@ -3,24 +3,38 @@ import { addEntry, listPending, listWeek, moveEntry, removeEntry, setStatus, upd
 import { getItem, listItems } from '$lib/server/items.js';
 import { guard } from '$lib/server/forms.js';
 import { ValidationError, date, id, int, oneOf, text } from '$lib/server/validate.js';
-import { isISODate, mondayOf, nowParts } from '$lib/dates.js';
+import { listUsers } from '$lib/server/auth.js';
+import { SLOT_VALUES } from '$lib/constants.js';
+import { isISODate, nowParts, weekStartOf } from '$lib/dates.js';
 
-const SLOT_VALUES = /** @type {const} */ (['almoco', 'jantar']);
 const STATUS_VALUES = /** @type {const} */ (['planned', 'eaten', 'skipped']);
 
 /** @param {string | null} w @param {string} today */
-function resolveMonday(w, today) {
-	return w && isISODate(w) ? mondayOf(w) : mondayOf(today);
+function resolveWeekStart(w, today) {
+	return weekStartOf(w && isISODate(w) ? w : today);
+}
+
+/**
+ * Pessoa a quem se destina a refeição ("" = todos).
+ * @param {FormData} form
+ */
+function person(form) {
+	const raw = form.get('person_id');
+	if (!raw) return null;
+	const pid = id(form, 'person_id');
+	if (!listUsers().some((u) => u.id === pid)) throw new ValidationError('Pessoa inválida.');
+	return pid;
 }
 
 /** @type {import('./$types').PageServerLoad} */
 export function load({ url }) {
 	const now = nowParts();
-	const monday = resolveMonday(url.searchParams.get('w'), now.date);
+	const start = resolveWeekStart(url.searchParams.get('w'), now.date);
 	return {
-		monday,
+		start,
 		today: now.date,
-		entries: listWeek(monday),
+		users: listUsers().map((u) => ({ id: u.id, display_name: u.display_name, color: u.color })),
+		entries: listWeek(start),
 		pending: listPending(now),
 		items: listItems().map((i) => ({
 			id: i.id,
@@ -37,8 +51,8 @@ export function load({ url }) {
 /** Volta à semana de onde veio o formulário (fecha o painel). @param {FormData} form */
 function back(form) {
 	const w = form.get('w');
-	const monday = typeof w === 'string' && isISODate(w) ? mondayOf(w) : null;
-	redirect(303, monday ? `/?w=${monday}` : '/');
+	const start = typeof w === 'string' && isISODate(w) ? weekStartOf(w) : null;
+	redirect(303, start ? `/?w=${start}` : '/');
 }
 
 /** @param {boolean} found */
@@ -67,7 +81,8 @@ export const actions = {
 					item_id,
 					title: item_id == null ? title : null,
 					units: int(form, 'units', { min: 1, max: 99, fallback: 1, label: 'Doses' }),
-					notes: text(form, 'notes', { max: 500, label: 'Nota' })
+					notes: text(form, 'notes', { max: 500, label: 'Nota' }),
+					person_id: person(form)
 				},
 				locals.user.id
 			);
@@ -83,6 +98,7 @@ export const actions = {
 					{
 						units: int(form, 'units', { min: 1, max: 99, fallback: 1, label: 'Doses' }),
 						notes: text(form, 'notes', { max: 500, label: 'Nota' }),
+						person_id: person(form),
 						title: text(form, 'title', { max: 100, label: 'Texto' }) || null
 					},
 					locals.user.id
@@ -98,7 +114,7 @@ export const actions = {
 			const slot = oneOf(form, 'slot', SLOT_VALUES, { label: 'Refeição' });
 			ensure(moveEntry(id(form), d, slot, locals.user.id));
 			// Depois de mover, mostra a semana de destino.
-			redirect(303, `/?w=${mondayOf(d)}`);
+			redirect(303, `/?w=${weekStartOf(d)}`);
 		}),
 
 	status: ({ request, locals }) =>

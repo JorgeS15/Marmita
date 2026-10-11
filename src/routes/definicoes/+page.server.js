@@ -5,17 +5,19 @@ import {
 	findUserById,
 	findUserByUsername,
 	listUsers,
+	setColor,
 	setDisplayName,
 	setPassword,
 	verifyPassword
 } from '$lib/server/auth.js';
 import { guard } from '$lib/server/forms.js';
-import { text } from '$lib/server/validate.js';
+import { oneOf, text } from '$lib/server/validate.js';
+import { PERSON_COLORS } from '$lib/constants.js';
 import { validateNewUser, validatePassword } from '$lib/server/users.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export function load() {
-	return { users: listUsers(), version: __APP_VERSION__ };
+	return { users: listUsers() };
 }
 
 /** @type {import('./$types').Actions} */
@@ -25,8 +27,13 @@ export const actions = {
 			async () => {
 				const form = await request.formData();
 				const name = text(form, 'display_name', { required: true, max: 60, label: 'Nome' });
+				const color = oneOf(form, 'color', PERSON_COLORS.map((c) => c.value), {
+					fallback: locals.user.color || PERSON_COLORS[0].value,
+					label: 'Cor'
+				});
 				setDisplayName(locals.user.id, name);
-				return { section: 'profile', ok: 'Nome atualizado.' };
+				setColor(locals.user.id, color);
+				return { section: 'profile', ok: 'Perfil atualizado.' };
 			},
 			{ section: 'profile' }
 		),
