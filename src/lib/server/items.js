@@ -80,7 +80,7 @@ export function updateItem(id, d, userId) {
 export function adjustQuantity(id, delta, userId) {
 	const res = db()
 		.prepare(
-			`UPDATE items SET quantity = MAX(0, quantity + ?), updated_by = ?, updated_at = datetime('now')
+			`UPDATE items SET quantity = ROUND(MAX(0, quantity + ?), 2), updated_by = ?, updated_at = datetime('now')
 			 WHERE id = ?`
 		)
 		.run(delta, userId, id);

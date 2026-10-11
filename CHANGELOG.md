@@ -3,6 +3,16 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.6.0] - 2026-10-11
+
+### Added
+- **Meias doses**: as doses das refeições, o stock dos itens e as doses das preparações aceitam decimais (ex.: `0,5`), com vírgula ou ponto. Os números aparecem no formato português ("0,5 dose").
+- **Duplicar** uma refeição ou uma preparação para um ou vários dias desta semana ou da seguinte. Nas refeições também se escolhe a refeição de destino.
+
+### Changed
+- **Preparações**: ao abrir, os campos (nome, pessoa, dia e notas) ficam logo editáveis e gravam sozinhos ao mudar e ao fechar o painel. Deixou de haver o botão "Editar".
+- O campo de notas das preparações é maior (área de texto, até 2000 caracteres).
+
 ## [1.5.0] - 2026-10-11
 
 ### Added

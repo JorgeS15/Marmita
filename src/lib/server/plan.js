@@ -165,7 +165,7 @@ function rawEntry(id) {
 function changeStock(itemId, delta) {
 	if (itemId == null || delta === 0) return;
 	db()
-		.prepare(`UPDATE items SET quantity = MAX(0, quantity + ?), updated_at = datetime('now') WHERE id = ?`)
+		.prepare(`UPDATE items SET quantity = ROUND(MAX(0, quantity + ?), 2), updated_at = datetime('now') WHERE id = ?`)
 		.run(delta, itemId);
 }
 
@@ -229,6 +229,28 @@ export function setStatus(id, status, userId) {
 			.prepare(`UPDATE plan_entries SET status = ?, updated_by = ?, updated_at = datetime('now') WHERE id = ?`)
 			.run(status, userId, id);
 		return true;
+	});
+}
+
+/**
+ * Copia a refeição para outros dias (mesma comida, doses, pessoa e nota; fica "planeada").
+ * @param {number} id
+ * @param {string[]} dates
+ * @param {string} slot
+ * @param {number} userId
+ */
+export function duplicateEntry(id, dates, slot, userId) {
+	return transaction(() => {
+		const e = /** @type {any} */ (db().prepare('SELECT * FROM plan_entries WHERE id = ?').get(id));
+		if (!e) return 0;
+		const insert = db().prepare(
+			`INSERT INTO plan_entries (date, slot, position, item_id, prep_id, title, units, notes, person_id, created_by, updated_by)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		);
+		for (const date of dates) {
+			insert.run(date, slot, nextPosition(date, slot), e.item_id, e.prep_id, e.title, e.units, e.notes, e.person_id, userId, userId);
+		}
+		return dates.length;
 	});
 }
 

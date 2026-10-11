@@ -86,3 +86,15 @@ export function normalize(s) {
 		.toLowerCase()
 		.trim();
 }
+
+const numFmt = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 2 });
+
+/** Quantidade de doses em pt-PT ("0,5", "2"). @param {number | null | undefined} n */
+export function fmtNum(n) {
+	return numFmt.format(n ?? 0);
+}
+
+/** "1 dose", "0,5 dose", "2 doses" @param {number} n */
+export function doses(n) {
+	return `${fmtNum(n)} ${Math.abs(n) <= 1 ? 'dose' : 'doses'}`;
+}
