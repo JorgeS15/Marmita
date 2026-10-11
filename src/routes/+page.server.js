@@ -1,9 +1,10 @@
 import { error, redirect } from '@sveltejs/kit';
-import { addEntry, listPending, listToThaw, setThawed, listWeek, moveEntry, removeEntry, setStatus, updateEntry } from '$lib/server/plan.js';
+import { addEntry, duplicateEntry, listPending, listToThaw, setThawed, listWeek, moveEntry, removeEntry, setStatus, updateEntry } from '$lib/server/plan.js';
 import { getItem, listItems } from '$lib/server/items.js';
 import {
 	addPreparation,
 	completePreparation,
+	duplicatePreparation,
 	listOpenPreparations,
 	listWeekPreparations,
 	removePreparation,
@@ -11,7 +12,7 @@ import {
 	updatePreparation
 } from '$lib/server/preparations.js';
 import { guard } from '$lib/server/forms.js';
-import { ValidationError, date, id, int, oneOf, text } from '$lib/server/validate.js';
+import { ValidationError, date, id, num, oneOf, text } from '$lib/server/validate.js';
 import { listUsers } from '$lib/server/auth.js';
 import { CATEGORIES, LOCATIONS, SLOT_VALUES } from '$lib/constants.js';
 import { addDays, isISODate, nowParts, weekStartOf } from '$lib/dates.js';
@@ -67,12 +68,20 @@ function back(form) {
 	redirect(303, start ? `/?w=${start}` : '/');
 }
 
+/** Dias escolhidos para duplicar (checkboxes "dates"). @param {FormData} form */
+function targetDates(form) {
+	const dates = [...new Set(form.getAll('dates').map(String))];
+	if (!dates.length) throw new ValidationError('Escolhe pelo menos um dia.');
+	if (dates.length > 31 || !dates.every(isISODate)) throw new ValidationError('Dias inválidos.');
+	return dates;
+}
+
 /** @param {FormData} form */
 function parsePrep(form) {
 	return {
 		date: /** @type {string} */ (date(form, 'date', { required: true, label: 'Data' })),
 		title: text(form, 'title', { required: true, max: 100, label: 'Preparação' }),
-		notes: text(form, 'notes', { max: 500, label: 'Nota' }),
+		notes: text(form, 'notes', { max: 2000, label: 'Notas' }),
 		person_id: person(form)
 	};
 }
@@ -106,7 +115,7 @@ export const actions = {
 					item_id,
 					prep_id,
 					title: item_id == null ? title : null,
-					units: int(form, 'units', { min: 1, max: 99, fallback: 1, label: 'Doses' }),
+					units: num(form, 'units', { min: 0.1, max: 99, fallback: 1, label: 'Doses' }),
 					notes: text(form, 'notes', { max: 500, label: 'Nota' }),
 					person_id: person(form)
 				},
@@ -122,7 +131,7 @@ export const actions = {
 				updateEntry(
 					id(form),
 					{
-						units: int(form, 'units', { min: 1, max: 99, fallback: 1, label: 'Doses' }),
+						units: num(form, 'units', { min: 0.1, max: 99, fallback: 1, label: 'Doses' }),
 						notes: text(form, 'notes', { max: 500, label: 'Nota' }),
 						person_id: person(form),
 						title: text(form, 'title', { max: 100, label: 'Texto' }) || null
@@ -141,6 +150,21 @@ export const actions = {
 			ensure(moveEntry(id(form), d, slot, locals.user.id));
 			// Depois de mover, mostra a semana de destino.
 			redirect(303, `/?w=${weekStartOf(d)}`);
+		}),
+
+	duplicate: ({ request, locals }) =>
+		guard(async () => {
+			const form = await request.formData();
+			const slot = oneOf(form, 'slot', SLOT_VALUES, { label: 'Refeição' });
+			ensure(duplicateEntry(id(form), targetDates(form), slot, locals.user.id) > 0);
+			back(form);
+		}),
+
+	prepDuplicate: ({ request, locals }) =>
+		guard(async () => {
+			const form = await request.formData();
+			ensure(duplicatePreparation(id(form), targetDates(form), locals.user.id) > 0, 'Preparação não encontrada.');
+			back(form);
 		}),
 
 	thaw: ({ request, locals }) =>
@@ -199,7 +223,7 @@ export const actions = {
 				completePreparation(
 					id(form),
 					{
-						units: int(form, 'units', { min: 1, max: 999, label: 'Doses' }),
+						units: num(form, 'units', { min: 0.1, max: 999, label: 'Doses' }),
 						target,
 						name: text(form, 'name', { required: target == null, max: 100, label: 'Nome' }),
 						category: oneOf(form, 'category', CATEGORIES.map((c) => c.value), { fallback: 'outro', label: 'Categoria' }),

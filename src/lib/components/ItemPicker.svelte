@@ -1,5 +1,5 @@
 <script>
-	import { CATEGORIES, LOCATIONS, labelOf, normalize } from '$lib/constants.js';
+	import { CATEGORIES, LOCATIONS, fmtNum, labelOf, normalize } from '$lib/constants.js';
 	import { agoLabel, dayMonth, weekdayShort } from '$lib/dates.js';
 
 	/**
@@ -64,7 +64,7 @@
 							</span>
 						</span>
 						<span class="badge" class:ok={item.free > 0} class:danger={item.free < 0}>
-							{item.free} {Math.abs(item.free) === 1 ? 'livre' : 'livres'}
+							{fmtNum(item.free)} {Math.abs(item.free) <= 1 ? 'livre' : 'livres'}
 						</span>
 					</label>
 				</li>

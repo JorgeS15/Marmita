@@ -5,7 +5,9 @@
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import ItemPicker from '$lib/components/ItemPicker.svelte';
 	import PersonPicker from '$lib/components/PersonPicker.svelte';
-	import { CATEGORIES, LOCATIONS, SLOT_VALUES, normalize, slotLabel, slotsFor } from '$lib/constants.js';
+	import PrepEditor from '$lib/components/PrepEditor.svelte';
+	import DayChips from '$lib/components/DayChips.svelte';
+	import { CATEGORIES, LOCATIONS, SLOT_VALUES, doses, fmtNum, normalize, slotLabel, slotsFor } from '$lib/constants.js';
 	import {
 		addDays,
 		dayMonth,
@@ -111,14 +113,14 @@
 	/** @type {number | string | null} id do item, ou "p<id>" para uma preparação */
 	let selectedItem = $state(null);
 	let freeText = $state('');
-	let units = $state(1);
+	let units = $state('1');
 
 	$effect(() => {
 		// Repor o formulário sempre que se abre um painel novo.
 		addTarget;
 		selectedItem = null;
 		freeText = '';
-		units = 1;
+		units = '1';
 	});
 
 	$effect(() => {
@@ -150,10 +152,11 @@
 	function confirmAdd() {
 		if (selectedItem == null) return true;
 		const item = data.items.find((i) => i.id === selectedItem);
-		if (!item || item.free >= units) return true;
+		const wanted = Number(String(units).replace(',', '.')) || 1;
+		if (!item || item.free >= wanted) return true;
 		const free = Math.max(item.free, 0);
 		return confirm(
-			`Só tens ${free} ${free === 1 ? 'dose livre' : 'doses livres'} de "${item.name}". Planear mesmo assim?`
+			`Só tens ${fmtNum(free)} ${free <= 1 ? 'dose livre' : 'doses livres'} de "${item.name}". Planear mesmo assim?`
 		);
 	}
 
@@ -200,7 +203,7 @@
 						<a class="what" href={entryHref(e.id)} data-sveltekit-noscroll>
 							<strong>{e.title}</strong>
 							<span class="muted small">
-								{e.date === data.today ? 'Hoje' : 'Amanhã'} · {label(e.slot)}{e.units > 1 ? ` · ${e.units} doses` : ''}
+								{e.date === data.today ? 'Hoje' : 'Amanhã'} · {label(e.slot)}{e.units !== 1 ? ` · ${doses(e.units)}` : ''}
 							</span>
 						</a>
 						<form method="POST" action="?/thaw" use:enhance={submit()}>
@@ -226,7 +229,7 @@
 						<a class="what" href={entryHref(e.id)} data-sveltekit-noscroll>
 							<strong>{e.title}</strong>
 							<span class="muted small">
-								{[dayLabel(e.date), label(e.slot), personLabel(e), e.units > 1 ? `${e.units} doses` : '']
+								{[dayLabel(e.date), label(e.slot), personLabel(e), e.units !== 1 ? doses(e.units) : '']
 									.filter(Boolean)
 									.join(' · ')}
 							</span>
@@ -375,7 +378,7 @@
 			<div class="grid-2">
 				<label class="field">
 					<span>Doses</span>
-					<input type="number" name="units" min="1" max="99" step="1" inputmode="numeric" bind:value={units} required />
+					<input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" autocomplete="off" name="units" bind:value={units} required />
 				</label>
 				<label class="field">
 					<span>Nota <span class="hint">(opcional)</span></span>
@@ -403,7 +406,7 @@
 			<PersonPicker users={data.users} value={data.user?.id ?? null} />
 			<label class="field">
 				<span>Nota <span class="hint">(opcional)</span></span>
-				<input type="text" name="notes" maxlength="500" placeholder="Ex.: descongelar o frango na véspera" />
+				<textarea name="notes" maxlength="2000" rows="4" placeholder="Ex.: descongelar o frango na véspera"></textarea>
 			</label>
 			<div class="sheet-actions">
 				<button class="btn primary block">Agendar</button>
@@ -422,11 +425,10 @@
 		<div class="stack">
 			{#if form?.error}<p class="alert" role="alert">{form.error}</p>{/if}
 
-			{#if p.notes}<p class="note">{p.notes}</p>{/if}
-
 			{#if p.status === 'done'}
+				{#if p.notes}<p class="note">{p.notes}</p>{/if}
 				<p class="alert ok" style="margin:0">
-					Preparado: +{p.units_added} {p.units_added === 1 ? 'dose' : 'doses'}
+					Preparado: +{doses(p.units_added)}
 					{#if p.item_id}em <a href="/inventario/{p.item_id}">{p.item_name}</a>{/if}.
 				</p>
 				<form method="POST" action="?/prepUndo" use:enhance={submit(() => confirm('Desfazer? As doses adicionadas saem do inventário.'))}>
@@ -435,7 +437,11 @@
 					<button class="btn block">↺ Desfazer</button>
 				</form>
 			{:else}
-				<details class="sub" open>
+				{#key p.id}
+					<PrepEditor prep={p} users={data.users} week={data.start} />
+				{/key}
+
+				<details class="sub done-box">
 					<summary>✓ Preparado — pôr no inventário</summary>
 					<form method="POST" action="?/prepDone" class="stack" use:enhance={submit()}>
 						<input type="hidden" name="w" value={data.start} />
@@ -445,7 +451,7 @@
 								<span>Onde guardar</span>
 								<select name="target" bind:value={prepTarget}>
 									{#each sameName as i (i.id)}
-										<option value={String(i.id)}>Juntar a "{i.name}" ({i.quantity} em stock)</option>
+										<option value={String(i.id)}>Juntar a "{i.name}" ({fmtNum(i.quantity)} em stock)</option>
 									{/each}
 									<option value="">Criar item novo</option>
 								</select>
@@ -456,7 +462,7 @@
 						<div class="grid-2">
 							<label class="field">
 								<span>Doses</span>
-								<input type="number" name="units" min="1" max="999" step="1" inputmode="numeric" value="4" required />
+								<input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" autocomplete="off" name="units" value="4" required />
 							</label>
 							<label class="field">
 								<span>Preparado em</span>
@@ -496,31 +502,17 @@
 						</div>
 					</form>
 				</details>
-
-				<details class="sub">
-					<summary>Editar</summary>
-					<form method="POST" action="?/prepUpdate" class="stack" use:enhance={submit()}>
-						<input type="hidden" name="w" value={data.start} />
-						<input type="hidden" name="id" value={p.id} />
-						<label class="field">
-							<span>Preparação</span>
-							<input type="text" name="title" required maxlength="100" value={p.title} />
-						</label>
-						<PersonPicker users={data.users} value={p.person_id} />
-						<div class="grid-2">
-							<label class="field">
-								<span>Dia</span>
-								<input type="date" name="date" value={p.date} required />
-							</label>
-							<label class="field">
-								<span>Nota</span>
-								<input type="text" name="notes" maxlength="500" value={p.notes} />
-							</label>
-						</div>
-						<button class="btn primary">Guardar</button>
-					</form>
-				</details>
 			{/if}
+
+			<details class="sub">
+				<summary>⧉ Duplicar</summary>
+				<form method="POST" action="?/prepDuplicate" class="stack" use:enhance={submit()}>
+					<input type="hidden" name="w" value={data.start} />
+					<input type="hidden" name="id" value={p.id} />
+					<DayChips start={data.start} today={data.today} exclude={p.date} />
+					<button class="btn primary">Duplicar</button>
+				</form>
+			</details>
 
 			<div class="row footer">
 				<form
@@ -551,7 +543,7 @@
 	{@const e = openEntry}
 	<BottomSheet
 		title={e.title ?? ''}
-		subtitle="{dayLabel(e.date)} · {label(e.slot)} · {e.units} {e.units === 1 ? 'dose' : 'doses'}"
+		subtitle="{dayLabel(e.date)} · {label(e.slot)} · {doses(e.units)}"
 		closeHref={weekHref}
 	>
 		<div class="stack">
@@ -628,7 +620,7 @@
 					<div class="grid-2">
 						<label class="field">
 							<span>Doses</span>
-							<input type="number" name="units" min="1" max="99" step="1" inputmode="numeric" value={e.units} required />
+							<input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" autocomplete="off" name="units" value={fmtNum(e.units)} required />
 						</label>
 						<label class="field">
 							<span>Nota</span>
@@ -636,6 +628,24 @@
 						</label>
 					</div>
 					<button class="btn primary">Guardar</button>
+				</form>
+			</details>
+
+			<details class="sub">
+				<summary>⧉ Duplicar</summary>
+				<form method="POST" action="?/duplicate" class="stack" use:enhance={submit()}>
+					<input type="hidden" name="w" value={data.start} />
+					<input type="hidden" name="id" value={e.id} />
+					<DayChips start={data.start} today={data.today} exclude={e.date} />
+					<label class="field">
+						<span>Refeição</span>
+						<select name="slot" value={e.slot}>
+							{#each slotsFor(morningSnack, e.slot === 'lanche_manha') as s (s.value)}
+								<option value={s.value}>{s.label}</option>
+							{/each}
+						</select>
+					</label>
+					<button class="btn primary">Duplicar</button>
 				</form>
 			</details>
 
@@ -1003,6 +1013,10 @@
 
 	.entry.prep.eaten {
 		background: color-mix(in srgb, var(--ok) 12%, var(--surface));
+	}
+
+	.done-box summary {
+		color: var(--ok);
 	}
 
 	/* ——— Painel de entrada ——— */

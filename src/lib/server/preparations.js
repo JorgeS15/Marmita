@@ -85,6 +85,18 @@ export function listOpenPreparations(from) {
 	);
 }
 
+/** Copia a preparação para outros dias (fica por fazer). @param {number} id @param {string[]} dates @param {number} userId */
+export function duplicatePreparation(id, dates, userId) {
+	return transaction(() => {
+		const p = getPreparation(id);
+		if (!p) return 0;
+		for (const date of dates) {
+			addPreparation({ date, title: p.title, notes: p.notes, person_id: p.person_id }, userId);
+		}
+		return dates.length;
+	});
+}
+
 /** @param {number} id */
 export function removePreparation(id) {
 	return db().prepare('DELETE FROM preparations WHERE id = ?').run(id).changes > 0;
@@ -117,7 +129,7 @@ export function completePreparation(id, d, userId) {
 		if (itemId != null) {
 			const res = db()
 				.prepare(
-					`UPDATE items SET quantity = quantity + ?, stored_on = ?, archived = 0, updated_by = ?,
+					`UPDATE items SET quantity = ROUND(quantity + ?, 2), stored_on = ?, archived = 0, updated_by = ?,
 					   updated_at = datetime('now') WHERE id = ?`
 				)
 				.run(d.units, d.stored_on, userId, itemId);
@@ -145,7 +157,7 @@ export function completePreparation(id, d, userId) {
 		).n;
 		db().prepare('UPDATE plan_entries SET item_id = ? WHERE prep_id = ?').run(itemId, id);
 		if (eaten > 0) {
-			db().prepare('UPDATE items SET quantity = MAX(0, quantity - ?) WHERE id = ?').run(eaten, itemId);
+			db().prepare('UPDATE items SET quantity = ROUND(MAX(0, quantity - ?), 2) WHERE id = ?').run(eaten, itemId);
 		}
 		return true;
 	});
@@ -164,7 +176,7 @@ export function undoPreparation(id, userId) {
 					.get(id)
 			).n;
 			db()
-				.prepare(`UPDATE items SET quantity = MAX(0, quantity + ? - ?), updated_at = datetime('now') WHERE id = ?`)
+				.prepare(`UPDATE items SET quantity = ROUND(MAX(0, quantity + ? - ?), 2), updated_at = datetime('now') WHERE id = ?`)
 				.run(eaten, prep.units_added, prep.item_id);
 			db().prepare('UPDATE plan_entries SET item_id = NULL WHERE prep_id = ?').run(id);
 		}
