@@ -1,0 +1,15 @@
+services:
+  marmita:
+    build: .
+    image: marmita:latest
+    # Em alternativa ao build local, usar a imagem publicada pelo GitHub Actions:
+    # image: ghcr.io/jorges15/marmita:latest
+    container_name: marmita
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      ORIGIN: https://marmita.exemplo.pt # URL pública (obrigatório para os form actions / CSRF)
+      TZ: Europe/Lisbon
+    volumes:
+      - ./data:/data
