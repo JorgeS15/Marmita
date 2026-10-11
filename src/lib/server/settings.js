@@ -19,7 +19,15 @@ export function getSettings() {
 	return { morningSnack: map.morning_snack === '1' };
 }
 
-/** @param {keyof typeof DEFAULTS} key @param {string} value */
+/** Valor "cru" de uma definição (ou undefined). @param {string} key */
+export function getRawSetting(key) {
+	const row = /** @type {{ value: string } | undefined} */ (
+		db().prepare('SELECT value FROM settings WHERE key = ?').get(key)
+	);
+	return row?.value;
+}
+
+/** @param {string} key @param {string} value */
 export function setSetting(key, value) {
 	db()
 		.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')

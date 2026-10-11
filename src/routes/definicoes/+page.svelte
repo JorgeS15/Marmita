@@ -1,6 +1,7 @@
 <script>
 	import { enhance } from '$app/forms';
 	import { PERSON_COLORS } from '$lib/constants.js';
+	import PushSettings from '$lib/components/PushSettings.svelte';
 
 	let { data, form } = $props();
 
@@ -59,6 +60,13 @@
 				<button class="btn">Guardar</button>
 			</form>
 		</section>
+
+		<PushSettings
+			publicKey={data.push.publicKey}
+			devices={data.push.devices}
+			prefs={data.push.prefs}
+			message={msg('notifications')}
+		/>
 
 		<section class="card stack" aria-labelledby="pw">
 			<h2 id="pw">Mudar palavra-passe</h2>
