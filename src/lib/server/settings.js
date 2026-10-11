@@ -1,0 +1,27 @@
+import { db } from './db.js';
+
+/** Definições partilhadas por toda a casa, com os valores por omissão. */
+const DEFAULTS = {
+	/** Há lanche da manhã? Se não, o lanche da tarde passa a chamar-se "Lanche". */
+	morning_snack: '1'
+};
+
+/** @typedef {{ morningSnack: boolean }} Settings */
+
+/** @returns {Settings} */
+export function getSettings() {
+	const rows = /** @type {{ key: string, value: string }[]} */ (
+		db().prepare('SELECT key, value FROM settings').all()
+	);
+	/** @type {Record<string, string>} */
+	const map = { ...DEFAULTS };
+	for (const r of rows) map[r.key] = r.value;
+	return { morningSnack: map.morning_snack === '1' };
+}
+
+/** @param {keyof typeof DEFAULTS} key @param {string} value */
+export function setSetting(key, value) {
+	db()
+		.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+		.run(key, value);
+}

@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import ItemForm from '$lib/components/ItemForm.svelte';
 	import StockBadge from '$lib/components/StockBadge.svelte';
-	import { SLOTS, labelOf } from '$lib/constants.js';
+	import { slotLabel } from '$lib/constants.js';
 	import { dayMonth, weekStartOf, weekdayShort } from '$lib/dates.js';
 
 	let { data, form } = $props();
@@ -40,7 +40,7 @@
 					{#each data.entries as e (e.id)}
 						<li>
 							<a href="/?w={weekStartOf(e.date)}&entrada={e.id}">
-								{weekdayShort(e.date)}, {dayMonth(e.date)} · {labelOf(SLOTS, e.slot)}
+								{weekdayShort(e.date)}, {dayMonth(e.date)} · {slotLabel(e.slot, data.settings.morningSnack)}
 							</a>
 							<span class="muted small">{e.units} {e.units === 1 ? 'dose' : 'doses'}</span>
 							{#if e.date < data.today}<span class="badge warn">por confirmar</span>{/if}

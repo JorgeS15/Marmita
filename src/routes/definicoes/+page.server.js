@@ -13,6 +13,7 @@ import {
 import { guard } from '$lib/server/forms.js';
 import { oneOf, text } from '$lib/server/validate.js';
 import { PERSON_COLORS } from '$lib/constants.js';
+import { setSetting } from '$lib/server/settings.js';
 import { validateNewUser, validatePassword } from '$lib/server/users.js';
 
 /** @type {import('./$types').PageServerLoad} */
@@ -22,6 +23,12 @@ export function load() {
 
 /** @type {import('./$types').Actions} */
 export const actions = {
+	house: async ({ request }) => {
+		const form = await request.formData();
+		setSetting('morning_snack', form.get('morning_snack') === '1' ? '1' : '0');
+		return { section: 'house', ok: 'Definições da casa guardadas.' };
+	},
+
 	profile: ({ request, locals }) =>
 		guard(
 			async () => {

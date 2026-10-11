@@ -12,6 +12,21 @@
 
 	/** @type {HTMLElement | undefined} */
 	let panel = $state();
+
+	// Área visível acima do teclado (visualViewport). Sem isto, no telemóvel o
+	// teclado tapa o fundo do painel e o botão de submeter.
+	let viewportHeight = $state(0);
+	let viewportTop = $state(0);
+	const rootStyle = $derived(
+		viewportHeight ? `top: ${viewportTop}px; bottom: auto; height: ${viewportHeight}px` : ''
+	);
+
+	/** Traz o campo em foco para a zona visível depois de o teclado abrir. @param {FocusEvent} e */
+	function onFocusIn(e) {
+		const el = /** @type {HTMLElement} */ (e.target);
+		if (!el.matches('input, textarea, select')) return;
+		setTimeout(() => el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 300);
+	}
 	const titleId = `sheet-${Math.random().toString(36).slice(2, 8)}`;
 
 	function close() {
@@ -31,7 +46,20 @@
 		panel?.focus({ preventScroll: true });
 		const overflow = document.body.style.overflow;
 		document.body.style.overflow = 'hidden';
+
+		const vv = window.visualViewport;
+		const syncViewport = () => {
+			if (!vv) return;
+			viewportHeight = vv.height;
+			viewportTop = vv.offsetTop;
+		};
+		syncViewport();
+		vv?.addEventListener('resize', syncViewport);
+		vv?.addEventListener('scroll', syncViewport);
+
 		return () => {
+			vv?.removeEventListener('resize', syncViewport);
+			vv?.removeEventListener('scroll', syncViewport);
 			document.body.style.overflow = overflow;
 			previous?.focus?.({ preventScroll: true });
 		};
@@ -40,9 +68,17 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="sheet-root">
+<div class="sheet-root" style={rootStyle}>
 	<a class="backdrop" href={closeHref} data-sveltekit-replacestate data-sveltekit-noscroll aria-label="Fechar" tabindex="-1"></a>
-	<div class="panel" role="dialog" aria-modal="true" aria-labelledby={titleId} tabindex="-1" bind:this={panel}>
+	<div
+		class="panel"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby={titleId}
+		tabindex="-1"
+		bind:this={panel}
+		onfocusin={onFocusIn}
+	>
 		<div class="grabber" aria-hidden="true"></div>
 		<header>
 			<div class="titles">
@@ -78,7 +114,7 @@
 		position: relative;
 		width: 100%;
 		max-width: 560px;
-		max-height: 88dvh;
+		max-height: calc(100% - 24px);
 		display: flex;
 		flex-direction: column;
 		background: var(--surface);
@@ -125,6 +161,17 @@
 		padding: 16px;
 	}
 
+	/* Botão de submeter sempre visível no fundo do painel. */
+	.content :global(.sheet-actions) {
+		position: sticky;
+		bottom: -16px;
+		margin: 0 -16px -16px;
+		padding: 12px 16px 16px;
+		background: var(--surface);
+		border-top: 1px solid var(--border);
+		z-index: 1;
+	}
+
 	@media (min-width: 720px) {
 		.sheet-root {
 			align-items: center;
@@ -132,7 +179,7 @@
 
 		.panel {
 			border-radius: 20px;
-			max-height: 85vh;
+			max-height: calc(100% - 48px);
 		}
 
 		.grabber {

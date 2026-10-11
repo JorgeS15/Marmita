@@ -21,6 +21,7 @@ import { SLOT_DEADLINE_HOUR, SLOT_VALUES } from '$lib/constants.js';
  * @property {number | null} item_free
  * @property {number | null} item_quantity
  * @property {number | null} item_archived
+ * @property {string | null} item_notes
  */
 
 const SELECT = `
@@ -28,7 +29,8 @@ const SELECT = `
 	       p.units, p.status, p.notes, p.person_id,
 	       pu.display_name AS person_name, pu.color AS person_color,
 	       cu.display_name AS created_by_name, uu.display_name AS updated_by_name,
-	       s.free AS item_free, s.quantity AS item_quantity, s.archived AS item_archived
+	       s.free AS item_free, s.quantity AS item_quantity, s.archived AS item_archived,
+	       s.notes AS item_notes
 	FROM plan_entries p
 	LEFT JOIN item_stock s ON s.id = p.item_id
 	LEFT JOIN users pu ON pu.id = p.person_id
@@ -193,6 +195,9 @@ export function removeEntry(id) {
 export function exportAll() {
 	return {
 		items: db().prepare('SELECT * FROM items ORDER BY id').all(),
-		plan_entries: db().prepare('SELECT * FROM plan_entries ORDER BY date, slot, position, id').all()
+		plan_entries: db().prepare('SELECT * FROM plan_entries ORDER BY date, slot, position, id').all(),
+		preparations: db().prepare('SELECT * FROM preparations ORDER BY date, id').all(),
+		ideas: db().prepare('SELECT * FROM ideas ORDER BY id').all(),
+		settings: db().prepare('SELECT * FROM settings ORDER BY key').all()
 	};
 }

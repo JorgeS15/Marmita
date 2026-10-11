@@ -27,6 +27,24 @@ export const SLOTS = /** @type {const} */ ([
 
 export const SLOT_VALUES = SLOTS.map((s) => s.value);
 
+/**
+ * Refeições visíveis conforme as definições. Sem lanche da manhã, o lanche
+ * da tarde passa a chamar-se só "Lanche". `keepMorning` mostra o lanche da
+ * manhã mesmo desligado (quando já há entradas nele).
+ * @param {boolean} morningSnack
+ * @param {boolean} [keepMorning]
+ */
+export function slotsFor(morningSnack, keepMorning = false) {
+	return SLOTS.filter((s) => s.value !== 'lanche_manha' || morningSnack || keepMorning).map((s) =>
+		!morningSnack && s.value === 'lanche_tarde' ? { ...s, label: 'Lanche', short: 'Lanche' } : s
+	);
+}
+
+/** Nome da refeição conforme as definições. @param {string} slot @param {boolean} morningSnack */
+export function slotLabel(slot, morningSnack) {
+	return slotsFor(morningSnack, true).find((s) => s.value === slot)?.label ?? slot;
+}
+
 /** Cores disponíveis para as pessoas da casa. */
 export const PERSON_COLORS = /** @type {const} */ ([
 	{ value: '#2563eb', label: 'Azul' },

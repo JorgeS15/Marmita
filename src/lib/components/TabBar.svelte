@@ -15,6 +15,12 @@
 			icon: 'M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm-1 7h14M8 6v1.5M8 13v3'
 		},
 		{
+			href: '/ideias',
+			label: 'Ideias',
+			match: (/** @type {string} */ p) => p.startsWith('/ideias'),
+			icon: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3Z'
+		},
+		{
 			href: '/definicoes',
 			label: 'Definições',
 			match: (/** @type {string} */ p) => p.startsWith('/definicoes'),

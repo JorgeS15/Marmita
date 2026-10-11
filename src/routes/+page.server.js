@@ -1,10 +1,18 @@
 import { error, redirect } from '@sveltejs/kit';
 import { addEntry, listPending, listWeek, moveEntry, removeEntry, setStatus, updateEntry } from '$lib/server/plan.js';
 import { getItem, listItems } from '$lib/server/items.js';
+import {
+	addPreparation,
+	completePreparation,
+	listWeekPreparations,
+	removePreparation,
+	undoPreparation,
+	updatePreparation
+} from '$lib/server/preparations.js';
 import { guard } from '$lib/server/forms.js';
 import { ValidationError, date, id, int, oneOf, text } from '$lib/server/validate.js';
 import { listUsers } from '$lib/server/auth.js';
-import { SLOT_VALUES } from '$lib/constants.js';
+import { CATEGORIES, LOCATIONS, SLOT_VALUES } from '$lib/constants.js';
 import { isISODate, nowParts, weekStartOf } from '$lib/dates.js';
 
 const STATUS_VALUES = /** @type {const} */ (['planned', 'eaten', 'skipped']);
@@ -35,6 +43,7 @@ export function load({ url }) {
 		today: now.date,
 		users: listUsers().map((u) => ({ id: u.id, display_name: u.display_name, color: u.color })),
 		entries: listWeek(start),
+		preparations: listWeekPreparations(start),
 		pending: listPending(now),
 		items: listItems().map((i) => ({
 			id: i.id,
@@ -55,9 +64,19 @@ function back(form) {
 	redirect(303, start ? `/?w=${start}` : '/');
 }
 
-/** @param {boolean} found */
-function ensure(found) {
-	if (!found) error(404, 'Entrada não encontrada.');
+/** @param {FormData} form */
+function parsePrep(form) {
+	return {
+		date: /** @type {string} */ (date(form, 'date', { required: true, label: 'Data' })),
+		title: text(form, 'title', { required: true, max: 100, label: 'Preparação' }),
+		notes: text(form, 'notes', { max: 500, label: 'Nota' }),
+		person_id: person(form)
+	};
+}
+
+/** @param {boolean} found @param {string} [what] */
+function ensure(found, what = 'Entrada não encontrada.') {
+	if (!found) error(404, what);
 }
 
 /** @type {import('./$types').Actions} */
@@ -129,6 +148,63 @@ export const actions = {
 		guard(async () => {
 			const form = await request.formData();
 			ensure(removeEntry(id(form)));
+			back(form);
+		}),
+
+	// ——— Preparações ———
+
+	prepAdd: ({ request, locals }) =>
+		guard(async () => {
+			const form = await request.formData();
+			addPreparation(parsePrep(form), locals.user.id);
+			back(form);
+		}),
+
+	prepUpdate: ({ request, locals }) =>
+		guard(async () => {
+			const form = await request.formData();
+			const d = parsePrep(form);
+			ensure(updatePreparation(id(form), d, locals.user.id), 'Preparação não encontrada.');
+			redirect(303, `/?w=${weekStartOf(d.date)}`);
+		}),
+
+	prepRemove: ({ request }) =>
+		guard(async () => {
+			const form = await request.formData();
+			ensure(removePreparation(id(form)), 'Preparação não encontrada.');
+			back(form);
+		}),
+
+	prepDone: ({ request, locals }) =>
+		guard(async () => {
+			const form = await request.formData();
+			const targetRaw = form.get('target');
+			const target = targetRaw ? id(form, 'target') : null;
+			if (target != null && !getItem(target)) throw new ValidationError('Esse item já não existe.');
+			ensure(
+				completePreparation(
+					id(form),
+					{
+						units: int(form, 'units', { min: 1, max: 999, label: 'Doses' }),
+						target,
+						name: text(form, 'name', { required: target == null, max: 100, label: 'Nome' }),
+						category: oneOf(form, 'category', CATEGORIES.map((c) => c.value), { fallback: 'outro', label: 'Categoria' }),
+						location: oneOf(form, 'location', LOCATIONS.map((l) => l.value), { fallback: 'congelador', label: 'Local' }),
+						stored_on: /** @type {string} */ (date(form, 'stored_on', { required: true, label: 'Data' })),
+						best_before: date(form, 'best_before', { label: 'Consumir até' }),
+						notes: text(form, 'item_notes', { max: 1000, label: 'Notas' })
+					},
+					locals.user.id
+				),
+				'Preparação não encontrada ou já confirmada.'
+			);
+			back(form);
+		}),
+
+	prepUndo: ({ request, locals }) =>
+		guard(async () => {
+			const form = await request.formData();
+			ensure(undoPreparation(id(form), locals.user.id), 'Preparação não encontrada.');
 			back(form);
 		})
 };
