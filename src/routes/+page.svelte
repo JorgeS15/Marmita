@@ -5,7 +5,7 @@
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import ItemPicker from '$lib/components/ItemPicker.svelte';
 	import PersonPicker from '$lib/components/PersonPicker.svelte';
-	import { SLOTS, SLOT_VALUES, labelOf } from '$lib/constants.js';
+	import { CATEGORIES, LOCATIONS, SLOT_VALUES, normalize, slotLabel, slotsFor } from '$lib/constants.js';
 	import {
 		addDays,
 		dayMonth,
@@ -26,6 +26,11 @@
 	const thisWeek = $derived(weekStartOf(data.today));
 	const weekHref = $derived(`/?w=${data.start}`);
 	const everyone = $derived(data.users.length === 2 ? 'Ambos' : 'Todos');
+	const morningSnack = $derived(data.settings.morningSnack);
+	/** Refeições visíveis nesta semana (o lanche da manhã aparece se já tiver entradas). */
+	const slots = $derived(slotsFor(morningSnack, data.entries.some((e) => e.slot === 'lanche_manha')));
+	/** @param {string} slot */
+	const label = (slot) => slotLabel(slot, morningSnack);
 	/** Faixa das refeições para todos: as cores de todas as pessoas. */
 	const bothStripe = $derived.by(() => {
 		const colors = data.users.map((u) => u.color);
@@ -60,6 +65,38 @@
 	const addHref = (date, slot) => `${weekHref}&novo=${date}.${slot}`;
 	/** @param {number} id */
 	const entryHref = (id) => `${weekHref}&entrada=${id}`;
+	/** @param {string} date */
+	const prepNewHref = (date) => `${weekHref}&preparar=${date}`;
+	/** @param {number} id */
+	const prepHref = (id) => `${weekHref}&preparacao=${id}`;
+
+	// ——— Preparações ———
+	const prepsByDay = $derived.by(() => {
+		/** @type {Record<string, (typeof data.preparations)[number][]>} */
+		const map = {};
+		for (const p of data.preparations) (map[p.date] ??= []).push(p);
+		return map;
+	});
+
+	const prepNewDate = $derived.by(() => {
+		const raw = page.url.searchParams.get('preparar');
+		return raw && isISODate(raw) ? raw : null;
+	});
+
+	const openPrep = $derived.by(() => {
+		const id = Number(page.url.searchParams.get('preparacao'));
+		return id ? (data.preparations.find((p) => p.id === id) ?? null) : null;
+	});
+
+	/** Itens do inventário com o mesmo nome da preparação (para juntar doses). */
+	const sameName = $derived(
+		openPrep ? data.items.filter((i) => normalize(i.name) === normalize(openPrep.title)) : []
+	);
+	/** "" = criar item novo; senão, id do item a reforçar. */
+	let prepTarget = $state('');
+	$effect(() => {
+		prepTarget = sameName.length ? String(sameName[0].id) : '';
+	});
 
 	/** @param {string} iso */
 	const dayLabel = (iso) => `${weekdayShort(iso)}, ${dayMonth(iso)}`;
@@ -165,7 +202,7 @@
 						<a class="what" href={entryHref(e.id)} data-sveltekit-noscroll>
 							<strong>{e.title}</strong>
 							<span class="muted small">
-								{[dayLabel(e.date), labelOf(SLOTS, e.slot), personLabel(e), e.units > 1 ? `${e.units} doses` : '']
+								{[dayLabel(e.date), label(e.slot), personLabel(e), e.units > 1 ? `${e.units} doses` : '']
 									.filter(Boolean)
 									.join(' · ')}
 							</span>
@@ -188,16 +225,17 @@
 		</details>
 	{/if}
 
-	<div class="week" style="--both: {bothStripe}">
+	<div class="week" style="--both: {bothStripe}; --rows: {slots.length + 2}">
 		{#each days as day (day)}
 			{@const isToday = day === data.today}
+			{@const preps = prepsByDay[day] ?? []}
 			<section class="day card" class:today={isToday} class:past={day < data.today} aria-labelledby="d-{day}">
 				<h2 id="d-{day}">
 					<span class="wd">{weekdayTitle(day)}</span>
 					<span class="dm">{dayMonth(day)}</span>
 					{#if isToday}<span class="badge accent">hoje</span>{/if}
 				</h2>
-				{#each SLOTS as slot (slot.value)}
+				{#each slots as slot (slot.value)}
 					{@const list = bySlot[`${day}.${slot.value}`] ?? []}
 					<div class="slot" class:minor={slot.minor}>
 						<div class="slot-head">
@@ -227,7 +265,6 @@
 										>
 											<span class="icon" aria-hidden="true">{statusIcon(e)}</span>
 											<span class="title">{e.title}</span>
-											{#if e.units > 1}<span class="units">×{e.units}</span>{/if}
 											<span class="visually-hidden">({personLabel(e)}, {statusLabel(e)})</span>
 										</a>
 									</li>
@@ -236,6 +273,42 @@
 						{/if}
 					</div>
 				{/each}
+				<div class="slot preps">
+					<div class="slot-head">
+						<h3 class="slot-name">
+							<span class="long">Preparações</span><span class="short" aria-hidden="true">Preparar</span>
+						</h3>
+						<a
+							class="add"
+							href={prepNewHref(day)}
+							data-sveltekit-noscroll
+							aria-label="Agendar preparação para {weekdayName(day)}, {dayMonth(day)}"
+						>
+							+
+						</a>
+					</div>
+					{#if preps.length}
+						<ul class="entries">
+							{#each preps as p (p.id)}
+								<li>
+									<a
+										class="entry prep {p.status === 'done' ? 'eaten' : ''}"
+										class:everyone={p.person_id == null}
+										style={personStyle(p)}
+										href={prepHref(p.id)}
+										data-sveltekit-noscroll
+									>
+										<span class="icon" aria-hidden="true">{p.status === 'done' ? '✓' : '🍳'}</span>
+										<span class="title">{p.title}</span>
+										<span class="visually-hidden">
+											(preparação, {personLabel(p)}, {p.status === 'done' ? 'preparada' : 'por preparar'})
+										</span>
+									</a>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
 			</section>
 		{/each}
 	</div>
@@ -243,7 +316,7 @@
 
 {#if addTarget}
 	<BottomSheet
-		title="Adicionar ao {labelOf(SLOTS, addTarget.slot).toLowerCase()}"
+		title="Adicionar ao {label(addTarget.slot).toLowerCase()}"
 		subtitle="{weekdayName(addTarget.date)}, {dayMonth(addTarget.date)}"
 		closeHref={weekHref}
 	>
@@ -281,8 +354,167 @@
 				</label>
 			</div>
 
-			<button class="btn primary block">Adicionar</button>
+			<div class="sheet-actions">
+				<button class="btn primary block">Adicionar</button>
+			</div>
 		</form>
+	</BottomSheet>
+{/if}
+
+{#if prepNewDate}
+	<BottomSheet title="Agendar preparação" subtitle="{weekdayName(prepNewDate)}, {dayMonth(prepNewDate)}" closeHref={weekHref}>
+		<form method="POST" action="?/prepAdd" class="stack" use:enhance={submit()}>
+			<input type="hidden" name="w" value={data.start} />
+			<input type="hidden" name="date" value={prepNewDate} />
+			{#if form?.error}<p class="alert" role="alert">{form.error}</p>{/if}
+			<label class="field">
+				<span>O que vais preparar?</span>
+				<input type="text" name="title" required maxlength="100" placeholder="Ex.: Caril de frango" />
+			</label>
+			<PersonPicker users={data.users} value={data.user?.id ?? null} />
+			<label class="field">
+				<span>Nota <span class="hint">(opcional)</span></span>
+				<input type="text" name="notes" maxlength="500" placeholder="Ex.: descongelar o frango na véspera" />
+			</label>
+			<div class="sheet-actions">
+				<button class="btn primary block">Agendar</button>
+			</div>
+		</form>
+	</BottomSheet>
+{/if}
+
+{#if openPrep}
+	{@const p = openPrep}
+	<BottomSheet
+		title={p.title}
+		subtitle="Preparação · {dayLabel(p.date)} · {personLabel(p)}"
+		closeHref={weekHref}
+	>
+		<div class="stack">
+			{#if form?.error}<p class="alert" role="alert">{form.error}</p>{/if}
+
+			{#if p.notes}<p class="note">{p.notes}</p>{/if}
+
+			{#if p.status === 'done'}
+				<p class="alert ok" style="margin:0">
+					Preparado: +{p.units_added} {p.units_added === 1 ? 'dose' : 'doses'}
+					{#if p.item_id}em <a href="/inventario/{p.item_id}">{p.item_name}</a>{/if}.
+				</p>
+				<form method="POST" action="?/prepUndo" use:enhance={submit(() => confirm('Desfazer? As doses adicionadas saem do inventário.'))}>
+					<input type="hidden" name="w" value={data.start} />
+					<input type="hidden" name="id" value={p.id} />
+					<button class="btn block">↺ Desfazer</button>
+				</form>
+			{:else}
+				<details class="sub" open>
+					<summary>✓ Preparado — pôr no inventário</summary>
+					<form method="POST" action="?/prepDone" class="stack" use:enhance={submit()}>
+						<input type="hidden" name="w" value={data.start} />
+						<input type="hidden" name="id" value={p.id} />
+						{#if sameName.length}
+							<label class="field">
+								<span>Onde guardar</span>
+								<select name="target" bind:value={prepTarget}>
+									{#each sameName as i (i.id)}
+										<option value={String(i.id)}>Juntar a "{i.name}" ({i.quantity} em stock)</option>
+									{/each}
+									<option value="">Criar item novo</option>
+								</select>
+							</label>
+						{:else}
+							<input type="hidden" name="target" value="" />
+						{/if}
+						<div class="grid-2">
+							<label class="field">
+								<span>Doses</span>
+								<input type="number" name="units" min="1" max="999" step="1" inputmode="numeric" value="4" required />
+							</label>
+							<label class="field">
+								<span>Preparado em</span>
+								<input type="date" name="stored_on" value={p.date} required />
+							</label>
+						</div>
+						{#if prepTarget === ''}
+							<label class="field">
+								<span>Nome</span>
+								<input type="text" name="name" maxlength="100" value={p.title} required />
+							</label>
+							<div class="grid-2">
+								<label class="field">
+									<span>Categoria</span>
+									<select name="category" value="outro">
+										{#each CATEGORIES as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
+									</select>
+								</label>
+								<label class="field">
+									<span>Local</span>
+									<select name="location" value="congelador">
+										{#each LOCATIONS as l (l.value)}<option value={l.value}>{l.label}</option>{/each}
+									</select>
+								</label>
+							</div>
+							<label class="field">
+								<span>Consumir até <span class="hint">(opcional)</span></span>
+								<input type="date" name="best_before" />
+							</label>
+							<label class="field">
+								<span>Notas do item <span class="hint">(opcional)</span></span>
+								<textarea name="item_notes" maxlength="1000" rows="2">{p.notes}</textarea>
+							</label>
+						{/if}
+						<div class="sheet-actions">
+							<button class="btn primary block">Pôr no inventário</button>
+						</div>
+					</form>
+				</details>
+
+				<details class="sub">
+					<summary>Editar</summary>
+					<form method="POST" action="?/prepUpdate" class="stack" use:enhance={submit()}>
+						<input type="hidden" name="w" value={data.start} />
+						<input type="hidden" name="id" value={p.id} />
+						<label class="field">
+							<span>Preparação</span>
+							<input type="text" name="title" required maxlength="100" value={p.title} />
+						</label>
+						<PersonPicker users={data.users} value={p.person_id} />
+						<div class="grid-2">
+							<label class="field">
+								<span>Dia</span>
+								<input type="date" name="date" value={p.date} required />
+							</label>
+							<label class="field">
+								<span>Nota</span>
+								<input type="text" name="notes" maxlength="500" value={p.notes} />
+							</label>
+						</div>
+						<button class="btn primary">Guardar</button>
+					</form>
+				</details>
+			{/if}
+
+			<div class="row footer">
+				<form
+					method="POST"
+					action="?/prepRemove"
+					use:enhance={submit(() =>
+						confirm(
+							p.status === 'done'
+								? `Remover "${p.title}" do calendário? O item no inventário mantém-se.`
+								: `Remover a preparação "${p.title}"?`
+						)
+					)}
+				>
+					<input type="hidden" name="w" value={data.start} />
+					<input type="hidden" name="id" value={p.id} />
+					<button class="btn danger small">Remover</button>
+				</form>
+			</div>
+
+			{#if p.created_by_name}
+				<p class="muted small" style="margin:0">Agendado por {p.created_by_name}.</p>
+			{/if}
+		</div>
 	</BottomSheet>
 {/if}
 
@@ -290,7 +522,7 @@
 	{@const e = openEntry}
 	<BottomSheet
 		title={e.title ?? ''}
-		subtitle="{dayLabel(e.date)} · {labelOf(SLOTS, e.slot)} · {e.units} {e.units === 1 ? 'dose' : 'doses'}"
+		subtitle="{dayLabel(e.date)} · {label(e.slot)} · {e.units} {e.units === 1 ? 'dose' : 'doses'}"
 		closeHref={weekHref}
 	>
 		<div class="stack">
@@ -307,7 +539,18 @@
 				{#if e.item_id == null}<span class="badge">Texto livre</span>{/if}
 			</div>
 
-			{#if e.notes}<p class="note">{e.notes}</p>{/if}
+			{#if e.notes}
+				<div class="note-block">
+					<h3>Nota da refeição</h3>
+					<p class="note">{e.notes}</p>
+				</div>
+			{/if}
+			{#if e.item_id != null && e.item_notes}
+				<div class="note-block">
+					<h3>Notas do item</h3>
+					<p class="note">{e.item_notes}</p>
+				</div>
+			{/if}
 
 			<form method="POST" action="?/status" class="status-actions" use:enhance={submit()}>
 				<input type="hidden" name="w" value={data.start} />
@@ -359,7 +602,9 @@
 						<label class="field">
 							<span>Refeição</span>
 							<select name="slot" value={e.slot}>
-								{#each SLOTS as s (s.value)}<option value={s.value}>{s.label}</option>{/each}
+								{#each slotsFor(morningSnack, e.slot === 'lanche_manha') as s (s.value)}
+									<option value={s.value}>{s.label}</option>
+								{/each}
 							</select>
 						</label>
 					</div>
@@ -575,11 +820,6 @@
 		display: none;
 	}
 
-	.entry .units {
-		color: var(--text-muted);
-		font-size: 0.85rem;
-	}
-
 	.entry.eaten .icon {
 		color: var(--ok);
 		font-weight: 800;
@@ -659,7 +899,27 @@
 		border-left: 5px solid var(--person, transparent);
 	}
 
+	/* ——— Preparações ——— */
+	.preps {
+		border-top-style: solid;
+	}
+
+	.entry.prep {
+		background: transparent;
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--person) 45%, var(--border));
+	}
+
+	.entry.prep.eaten {
+		background: color-mix(in srgb, var(--ok) 12%, var(--surface));
+	}
+
 	/* ——— Painel de entrada ——— */
+	.note-block h3 {
+		font-size: 0.8rem;
+		color: var(--text-muted);
+		margin-bottom: 4px;
+	}
+
 	.note {
 		margin: 0;
 		padding: 10px 12px;
@@ -709,12 +969,12 @@
 		.week {
 			display: grid;
 			grid-template-columns: repeat(7, minmax(0, 1fr));
-			grid-template-rows: repeat(6, auto);
+			grid-template-rows: repeat(var(--rows), auto);
 			gap: 8px;
 		}
 
 		.day {
-			grid-row: span 6;
+			grid-row: span var(--rows);
 			display: grid;
 			grid-template-rows: subgrid;
 			gap: 8px;

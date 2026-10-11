@@ -44,6 +44,22 @@
 			</form>
 		</section>
 
+		<section class="card stack" aria-labelledby="casa">
+			<h2 id="casa">Refeições da casa</h2>
+			<p class="muted small" style="margin:0">Aplica-se a todas as pessoas e dispositivos.</p>
+			{#if msg('house')?.ok}<p class="alert ok" role="status">{msg('house')?.ok}</p>{/if}
+			<form method="POST" action="?/house" use:enhance={() => async ({ update }) => update({ reset: false })} class="stack">
+				<label class="toggle">
+					<input type="checkbox" name="morning_snack" value="1" checked={data.settings.morningSnack} />
+					<span>
+						<strong>Lanche da manhã</strong>
+						<span class="muted small">Desligado, fica só o lanche da tarde, com o nome "Lanche".</span>
+					</span>
+				</label>
+				<button class="btn">Guardar</button>
+			</form>
+		</section>
+
 		<section class="card stack" aria-labelledby="pw">
 			<h2 id="pw">Mudar palavra-passe</h2>
 			{#if msg('password')?.error}<p class="alert" role="alert">{msg('password')?.error}</p>{/if}
@@ -125,6 +141,27 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
+	}
+
+	.toggle {
+		display: flex;
+		align-items: flex-start;
+		gap: 12px;
+		min-height: 44px;
+		cursor: pointer;
+	}
+
+	.toggle input {
+		width: 22px;
+		height: 22px;
+		margin-top: 2px;
+		accent-color: var(--accent);
+		flex: none;
+	}
+
+	.toggle > span {
+		display: flex;
+		flex-direction: column;
 	}
 
 	.users li {

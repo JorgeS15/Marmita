@@ -3,6 +3,21 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.3.0] - 2026-10-13
+
+### Added
+- **Preparações** no calendário: em cada dia agenda-se o que vai ser cozinhado (ex.: "Caril"), para quem e com uma nota. Ao confirmar "Preparado", as doses entram no inventário, num item novo ou somadas a um item existente com o mesmo nome. A confirmação pode ser desfeita.
+- Separador **Ideias** (ícone de lâmpada): bloco de notas partilhado para receitas e ideias, com pesquisa.
+- Definição da casa **Lanche da manhã** (em Definições, guardada no servidor). Desligada, fica só o lanche da tarde, com o nome "Lanche". Se uma semana já tiver entradas no lanche da manhã, essas continuam visíveis.
+- O painel de uma refeição mostra as **notas do item** do inventário, além da nota da própria refeição.
+- O export JSON inclui também as preparações, as ideias e as definições.
+
+### Changed
+- No calendário, as refeições mostram apenas o nome (o "×2" das doses só aparece ao abrir a refeição).
+
+### Fixed
+- No telemóvel, o teclado já não tapa o botão "Adicionar" dos painéis. O painel ajusta-se à área visível acima do teclado, o botão fica fixo no fundo do painel e o campo em foco é trazido à vista.
+
 ## [1.2.0] - 2026-10-11
 
 ### Added

@@ -4,7 +4,8 @@ Planeador de refeições caseiro: inventário do que está congelado ou guardado
 Self-hosted em Docker, usado como PWA e partilhado pelas pessoas da casa.
 
 - **Inventário**: nome, categoria, local, doses, data de congelação, "consumir até" e notas. Cada item mostra `stock · planeadas · livres`.
-- **Semana**: de domingo a sábado, com pequeno-almoço, lanche da manhã, almoço, lanche da tarde e jantar. Cada refeição pode ter várias entradas, vindas do inventário ou em texto livre, e é atribuída a uma pessoa da casa (ou a ambas). Cada pessoa tem a sua cor.
+- **Semana**: de domingo a sábado, com pequeno-almoço, lanche da manhã, almoço, lanche da tarde e jantar. Cada refeição pode ter várias entradas, vindas do inventário ou em texto livre, e é atribuída a uma pessoa da casa (ou a ambas). Cada pessoa tem a sua cor. Cada dia tem também **Preparações** (o que vai ser cozinhado); ao confirmar, as doses entram no inventário.
+- **Ideias**: bloco de notas partilhado para receitas e ideias.
 - **Consumo**: "Comido" desconta o stock, "Não comido" liberta a dose e "Desfazer" repõe tudo. As refeições que já passaram aparecem em **Por confirmar**.
 - **Contas**: utilizador e palavra-passe. Todos veem e editam os mesmos dados.
 - **PWA** instalável (exige HTTPS), com tema claro e escuro, em português de Portugal.
@@ -168,7 +169,8 @@ src/
 └─ routes/
    ├─ +page.*               # Semana (?w=AAAA-MM-DD do domingo)
    ├─ inventario/           # lista, novo, [id]
-   ├─ definicoes/           # perfil, palavra-passe, pessoas, export JSON
+   ├─ ideias/               # bloco de notas (lista, nova, [id])
+   ├─ definicoes/           # perfil, refeições da casa, palavra-passe, pessoas, export JSON
    ├─ login/ setup/ logout/
    └─ health/               # GET → "ok" (healthcheck do Docker)
 ```
@@ -187,6 +189,9 @@ Pontos que a especificação deixava em aberto e a opção tomada:
 - **Pessoa da refeição**: ao agendar escolhe-se uma pessoa ou "Ambos" (com mais de 2 pessoas, "Todos"). Por omissão fica a pessoa com sessão iniciada. As refeições de todos mostram uma faixa com as cores de todas as pessoas.
 - **Cores**: são atribuídas automaticamente ao criar cada conta e podem ser mudadas em Definições → Perfil.
 - **Hora a partir da qual uma refeição fica "Por confirmar"**: pequeno-almoço às 11h, lanche da manhã às 12h, almoço às 15h, lanche da tarde às 18h e jantar às 22h.
+- **Lanche da manhã opcional**: é uma definição da casa, guardada na base de dados e não numa variável de ambiente, e muda-se em Definições. Desligada, o lanche da tarde passa a chamar-se "Lanche". As entradas antigas do lanche da manhã continuam visíveis nas semanas onde existem.
+- **Preparações**: ao confirmar, se já existir no inventário um item ativo com o mesmo nome, a opção por omissão é somar as doses a esse item; também se pode criar um item novo. "Desfazer" retira as doses que tinham sido somadas. Uma preparação ainda não confirmada não aparece no seletor de refeições: agenda-se a refeição depois de confirmada, ou com texto livre.
+- **Ideias**: as notas são partilhadas por todas as pessoas, com título e texto livre, e aparecem da mais recente para a mais antiga.
 - **Sessões**: duram 1 ano e são renovadas, no máximo uma vez por dia, quando a app é usada. Mudar a palavra-passe termina as outras sessões do utilizador.
 - **Pesquisa e filtros do inventário**: são feitos no browser e ignoram maiúsculas e acentos ("feijao" encontra "Feijão"). Os filtros ficam refletidos no URL.
 - **Arquivar e apagar**: a lista tem "Arquivar". Um item arquivado pode ser reposto ou apagado definitivamente na página do item. As entradas do calendário mantêm o nome do item apagado.
