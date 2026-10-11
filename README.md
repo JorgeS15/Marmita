@@ -51,6 +51,7 @@ No primeiro acesso aparece o ecrã **Setup** para criar a primeira conta. A segu
 | `DATA_DIR` | `/data` | Pasta onde fica a base de dados `marmita.db`. |
 | `TZ` | `Europe/Lisbon` | Fuso horário usado para "hoje" e para "por confirmar". |
 | `BACKUP_KEEP` | `14` | Número de cópias diárias da base de dados guardadas em `data/backups/` (`0` desliga). |
+| `VAPID_SUBJECT` | `ORIGIN` (ou `mailto:marmita@example.com`) | Contacto enviado aos serviços de push (Google/Apple). Opcional. |
 
 A proteção CSRF aceita pedidos cuja origem coincide com o host do pedido (`Host` ou `X-Forwarded-Host`), com o `ORIGIN` ou com o `ALLOWED_ORIGINS`. Pedidos de outros sites são rejeitados com 403. Por isso a mesma instalação funciona em `https://marmita.exemplo.pt`, `http://localhost:4004` e `http://192.168.1.x:4004`.
 
@@ -89,6 +90,15 @@ Para limitar as tentativas de login por IP real atrás do proxy, define `ADDRESS
 
 - **Android (Chrome)**: abrir o endereço e escolher **Instalar app** no menu.
 - **iOS (Safari)**: Partilhar → **Adicionar ao ecrã principal**.
+
+### Notificações
+
+Em **Definições → Notificações**, cada pessoa ativa as notificações em cada um dos seus dispositivos e escolhe que tipos quer receber e a que horas.
+
+- **Android (Chrome)** e **computador**: funcionam no browser ou com a app instalada.
+- **iPhone/iPad**: só a partir do iOS 16.4 e com a app **adicionada ao ecrã principal**.
+- É preciso HTTPS (o reverse proxy) e o servidor tem de conseguir aceder à internet (`fcm.googleapis.com`, `web.push.apple.com`, etc.).
+- O servidor verifica as notificações a cada minuto, no fuso definido em `TZ`.
 
 ### Backups
 

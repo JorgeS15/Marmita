@@ -43,7 +43,7 @@ export function weekStartOf(iso) {
 /**
  * Data e hora atuais no fuso indicado (por omissão, o do processo/navegador).
  * @param {string} [timeZone]
- * @returns {{ date: string, hour: number }}
+ * @returns {{ date: string, hour: number, minute: number }}
  */
 export function nowParts(timeZone) {
 	const parts = new Intl.DateTimeFormat('en-CA', {
@@ -52,11 +52,16 @@ export function nowParts(timeZone) {
 		month: '2-digit',
 		day: '2-digit',
 		hour: '2-digit',
+		minute: '2-digit',
 		hourCycle: 'h23'
 	}).formatToParts(new Date());
 	/** @param {string} t */
 	const get = (t) => parts.find((p) => p.type === t)?.value ?? '';
-	return { date: `${get('year')}-${get('month')}-${get('day')}`, hour: Number(get('hour')) };
+	return {
+		date: `${get('year')}-${get('month')}-${get('day')}`,
+		hour: Number(get('hour')),
+		minute: Number(get('minute'))
+	};
 }
 
 /** @param {string} [timeZone] */

@@ -3,6 +3,17 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.5.0] - 2026-10-11
+
+### Added
+- **Notificações push** no telemóvel e no computador, mesmo com a app fechada. Ativam-se em Definições → Notificações, em cada dispositivo, e há um botão "Enviar teste". Há quatro tipos, cada um com a sua hora, ajustável por pessoa:
+  - 🧊 **Tirar do congelador**: refeições de amanhã que vêm do congelador (21:00).
+  - 🍳 **Preparações de amanhã** (21:00).
+  - ✓ **Por confirmar**: refeições de hoje ou anteriores ainda por marcar (22:30).
+  - ⏳ **Validade a acabar**: itens a consumir até hoje ou amanhã (10:00).
+- Cada pessoa recebe só o que lhe diz respeito, mais o que é para "Ambos". Cada notificação sai no máximo uma vez por dia e só se houver alguma coisa para dizer.
+- Web Push implementado sem dependências (cifra RFC 8291 e VAPID com `node:crypto`). As chaves VAPID são geradas no primeiro arranque e guardadas na base de dados. A variável `VAPID_SUBJECT` é opcional.
+
 ## [1.4.0] - 2026-10-11
 
 ### Added

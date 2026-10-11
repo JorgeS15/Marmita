@@ -51,3 +51,36 @@ sw.addEventListener('fetch', (event) => {
 	}
 	// Restantes pedidos (dados, ações): rede, sem cache.
 });
+
+// ——— Notificações push ———
+
+sw.addEventListener('push', (event) => {
+	/** @type {{ title?: string, body?: string, url?: string, tag?: string }} */
+	let msg = {};
+	try {
+		msg = event.data?.json() ?? {};
+	} catch {
+		msg = { body: event.data?.text() };
+	}
+	event.waitUntil(
+		sw.registration.showNotification(msg.title || 'Marmita', {
+			body: msg.body || '',
+			tag: msg.tag,
+			icon: '/icons/icon-192.png',
+			badge: '/icons/icon-192.png',
+			data: { url: msg.url || '/' }
+		})
+	);
+});
+
+sw.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	const url = new URL(event.notification.data?.url || '/', sw.location.origin).href;
+	event.waitUntil(
+		sw.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+			const open = list.find((c) => c.url.startsWith(sw.location.origin));
+			if (open) return open.navigate(url).then((c) => (c ?? open).focus());
+			return sw.clients.openWindow(url);
+		})
+	);
+});

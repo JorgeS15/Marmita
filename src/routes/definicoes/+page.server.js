@@ -15,15 +15,41 @@ import { oneOf, text } from '$lib/server/validate.js';
 import { PERSON_COLORS } from '$lib/constants.js';
 import { setSetting } from '$lib/server/settings.js';
 import { listBackups } from '$lib/server/backup.js';
+import { KINDS, countSubscriptions, getPrefs, setPrefs, vapid } from '$lib/server/notifications.js';
 import { validateNewUser, validatePassword } from '$lib/server/users.js';
 
 /** @type {import('./$types').PageServerLoad} */
-export function load() {
-	return { users: listUsers(), backups: listBackups() };
+export function load({ locals }) {
+	const userId = /** @type {NonNullable<typeof locals.user>} */ (locals.user).id;
+	return {
+		users: listUsers(),
+		backups: listBackups(),
+		push: {
+			publicKey: vapid().publicKey,
+			devices: countSubscriptions(userId),
+			prefs: getPrefs(userId)
+		}
+	};
 }
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /** @type {import('./$types').Actions} */
 export const actions = {
+	notifications: async ({ request, locals }) => {
+		const form = await request.formData();
+		/** @type {any} */
+		const prefs = {};
+		for (const kind of KINDS) {
+			prefs[kind] = form.get(kind) === '1' ? 1 : 0;
+			const time = String(form.get(`${kind}_time`) ?? '');
+			if (!TIME_RE.test(time)) return fail(400, { section: 'notifications', error: 'Hora inválida.' });
+			prefs[`${kind}_time`] = time;
+		}
+		setPrefs(locals.user.id, prefs);
+		return { section: 'notifications', ok: 'Notificações guardadas.' };
+	},
+
 	house: async ({ request }) => {
 		const form = await request.formData();
 		setSetting('morning_snack', form.get('morning_snack') === '1' ? '1' : '0');

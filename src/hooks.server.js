@@ -12,10 +12,12 @@ import {
 const PUBLIC = ['/login', '/setup', '/health'];
 
 import { startBackups } from '$lib/server/backup.js';
+import { startNotifications } from '$lib/server/notifications.js';
 
 /** Corre uma vez no arranque do servidor (não durante o build). */
 export function init() {
 	startBackups();
+	startNotifications();
 }
 
 let lastPurge = 0;
