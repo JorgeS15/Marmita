@@ -15,6 +15,16 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e 
 - Editar um item do inventário sem mexer na quantidade já não desfaz descontos feitos entretanto (ex.: refeição marcada como comida com o formulário aberto).
 - Cópias de segurança são escritas num ficheiro temporário e só depois renomeadas, para uma cópia falhada não ocupar o lugar da do dia.
 - Export JSON inclui os ingredientes das preparações e deixa de incluir as chaves privadas das notificações.
+- Ao voltar à app (ou na atualização automática de minuto a minuto), os painéis abertos já não perdem o que estava a ser preenchido:
+  - "Adicionar" mantém o item escolhido, as doses e o texto;
+  - nas preparações, o texto escrito depois de "✓ Guardado" já não é substituído pela versão anterior;
+  - em "Preparado — confirmar", a opção escolhida ("Não pôr no inventário", "Criar item novo") já não volta a "Juntar a…".
+- Preparações: uma falha a guardar (ex.: apagada noutro telemóvel) já não aparece como "✓ Guardado"; o que estiver por guardar é gravado ao mudar de app ou fechar a PWA.
+- Uma ação sobre algo apagado noutro telemóvel mostra um aviso e volta à semana, em vez de uma página de erro.
+- Ideias: "Planear" usa (e guarda) o título e o texto como estão no ecrã, mesmo sem carregar em "Guardar".
+- Depois de "Usar" um ingrediente (e noutros subformulários do painel), o formulário fica limpo e fechado, evitando adicioná-lo duas vezes.
+- Seletor de itens: o item escolhido continua visível ao pesquisar ou filtrar por local (antes deixava de ser enviado).
+- Ingredientes sem doses livres aparecem como "nenhuma livre" em vez de um número negativo; "browser" passa a "navegador".
 
 ### Security
 - Login: o `next` com `\` (ex.: `/\site.com`) já não permite redirecionar para outro site.

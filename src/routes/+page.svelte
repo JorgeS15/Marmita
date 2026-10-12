@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { untrack } from 'svelte';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
 	import ItemPicker from '$lib/components/ItemPicker.svelte';
 	import PersonPicker from '$lib/components/PersonPicker.svelte';
@@ -99,8 +100,11 @@
 	);
 	/** "" = criar item novo; senão, id do item a reforçar. */
 	let prepTarget = $state('');
+	// Só repõe ao abrir outra preparação (não a cada atualização dos dados em segundo plano).
+	const openPrepId = $derived(openPrep?.id ?? null);
 	$effect(() => {
-		prepTarget = sameName.length ? String(sameName[0].id) : '';
+		openPrepId;
+		prepTarget = untrack(() => (sameName.length ? String(sameName[0].id) : ''));
 	});
 
 	/** @param {string} iso */
@@ -118,9 +122,11 @@
 	let freeText = $state('');
 	let units = $state('1');
 
+	/** Chave do painel "Adicionar" (texto): não muda quando os dados são atualizados em segundo plano. */
+	const addKey = $derived(addTarget ? `${addTarget.date}.${addTarget.slot}` : null);
 	$effect(() => {
 		// Repor o formulário sempre que se abre um painel novo.
-		addTarget;
+		addKey;
 		selectedItem = null;
 		freeText = '';
 		units = '1';
@@ -138,14 +144,21 @@
 	 */
 	const submit =
 		(check) =>
-		({ cancel }) => {
+		({ cancel, formElement }) => {
 			if (check && !check()) {
 				cancel();
 				return;
 			}
 			return async ({ result, update }) => {
 				if (result.type === 'redirect') {
+					// Subformulários (ex.: "Usar" um ingrediente) ficam limpos e fechados.
+					formElement.reset();
+					formElement.closest('details')?.removeAttribute('open');
 					await goto(result.location, { replaceState: true, noScroll: true, invalidateAll: true });
+				} else if (result.type === 'error') {
+					// Ex.: a refeição foi apagada noutro telemóvel. Volta à semana em vez de mostrar uma página de erro.
+					alert(result.error?.message ?? 'Não foi possível concluir.');
+					await goto(weekHref, { replaceState: true, noScroll: true, invalidateAll: true });
 				} else {
 					await update({ reset: false });
 				}
@@ -548,7 +561,7 @@
 										{#if group.length}
 											<optgroup label={l.label}>
 												{#each group as i (i.id)}
-													<option value={i.id}>{i.name} — {fmtNum(i.free)} {Math.abs(i.free) <= 1 ? 'livre' : 'livres'}</option>
+													<option value={i.id}>{i.name} — {i.free > 0 ? `${fmtNum(i.free)} ${i.free <= 1 ? 'livre' : 'livres'}` : 'nenhuma livre'}</option>
 												{/each}
 											</optgroup>
 										{/if}

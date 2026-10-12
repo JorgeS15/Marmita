@@ -130,10 +130,10 @@
 			e depois abre a Marmita a partir do ícone (iOS 16.4 ou mais recente).
 		</p>
 	{:else if status === 'unsupported'}
-		<p class="alert info small" style="margin:0">Este browser não suporta notificações push.</p>
+		<p class="alert info small" style="margin:0">Este navegador não suporta notificações push.</p>
 	{:else if status === 'denied'}
 		<p class="alert warn small" style="margin:0">
-			As notificações estão bloqueadas para este site. Permite-as nas definições do browser/telemóvel e recarrega a página.
+			As notificações estão bloqueadas para este site. Permite-as nas definições do navegador ou do telemóvel e recarrega a página.
 		</p>
 	{:else}
 		<div class="row">

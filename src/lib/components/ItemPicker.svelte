@@ -18,16 +18,18 @@
 	let place = $state('');
 	const filtered = $derived.by(() => {
 		const needle = normalize(q);
+		// O item escolhido fica sempre visível (senão deixava de ser enviado sem se perceber).
 		const list = items.filter(
-			(i) => (!place || i.location === place) && (!needle || normalize(i.name).includes(needle))
+			(i) => i.id === selected || ((!place || i.location === place) && (!needle || normalize(i.name).includes(needle)))
 		);
 		// Mais antigo primeiro; os sem doses livres vão para o fim.
 		return [...list].sort((a, b) => Number(a.free <= 0) - Number(b.free <= 0));
 	});
 	const filteredPreps = $derived.by(() => {
 		const needle = normalize(q);
-		if (place) return [];
-		return needle ? preps.filter((p) => normalize(p.title).includes(needle)) : preps;
+		return preps.filter(
+			(p) => `p${p.id}` === selected || (!place && (!needle || normalize(p.title).includes(needle)))
+		);
 	});
 </script>
 

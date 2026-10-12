@@ -1,5 +1,5 @@
 <script>
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import PersonPicker from './PersonPicker.svelte';
 	import { weekStartOf } from '$lib/dates.js';
@@ -13,6 +13,10 @@
 	 * }}
 	 */
 	let { prep, users, week } = $props();
+
+	// Valores iniciais lidos uma só vez: a atualização dos dados em segundo plano
+	// não pode reescrever o que está a ser escrito (o painel é recriado ao mudar de preparação).
+	const initial = untrack(() => ({ ...prep }));
 
 	/** @type {HTMLFormElement | undefined} */
 	let form = $state();
@@ -43,6 +47,12 @@
 				keepalive
 			});
 			const result = await res.json().catch(() => ({}));
+			if (result.type === 'error' || (!res.ok && result.type !== 'failure')) {
+				status = 'error';
+				message = result.error?.message ?? 'Não foi possível guardar.';
+				dirty = true;
+				return;
+			}
 			if (result.type === 'failure') {
 				status = 'error';
 				message = String(result.data ?? 'Não foi possível guardar.');
@@ -73,6 +83,22 @@
 		timer = setTimeout(() => save(), 800);
 	}
 
+	// Ao mudar de app ou fechar a PWA, grava já o que estiver pendente.
+	$effect(() => {
+		const flush = () => {
+			if (dirty && document.visibilityState === 'hidden') save(true);
+		};
+		const onHide = () => {
+			if (dirty) save(true);
+		};
+		document.addEventListener('visibilitychange', flush);
+		window.addEventListener('pagehide', onHide);
+		return () => {
+			document.removeEventListener('visibilitychange', flush);
+			window.removeEventListener('pagehide', onHide);
+		};
+	});
+
 	onDestroy(() => {
 		if (dirty) save(true).then(() => invalidateAll());
 		else if (status === 'saved') invalidateAll();
@@ -93,19 +119,19 @@
 	}}
 >
 	<input type="hidden" name="w" value={week} />
-	<input type="hidden" name="id" value={prep.id} />
+	<input type="hidden" name="id" value={initial.id} />
 	<label class="field">
 		<span>Preparação</span>
-		<input type="text" name="title" required maxlength="100" value={prep.title} />
+		<input type="text" name="title" required maxlength="100" value={initial.title} />
 	</label>
-	<PersonPicker {users} value={prep.person_id} />
+	<PersonPicker {users} value={initial.person_id} />
 	<label class="field">
 		<span>Dia</span>
-		<input type="date" name="date" value={prep.date} required />
+		<input type="date" name="date" value={initial.date} required />
 	</label>
 	<label class="field">
 		<span>Notas</span>
-		<textarea name="notes" maxlength="2000" rows="5" placeholder="Ingredientes, passos, o que descongelar…">{prep.notes}</textarea>
+		<textarea name="notes" maxlength="2000" rows="5" placeholder="Ingredientes, passos, o que descongelar…">{initial.notes}</textarea>
 	</label>
 	<p class="save-status small" aria-live="polite">
 		{#if status === 'pending' || status === 'saving'}
