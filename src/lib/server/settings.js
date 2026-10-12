@@ -3,10 +3,12 @@ import { db } from './db.js';
 /** Definições partilhadas por toda a casa, com os valores por omissão. */
 const DEFAULTS = {
 	/** Há lanche da manhã? Se não, o lanche da tarde passa a chamar-se "Lanche". */
-	morning_snack: '1'
+	morning_snack: '1',
+	/** Pedir confirmação do que foi comido? Se não, as refeições passadas contam como comidas. */
+	confirmations: '1'
 };
 
-/** @typedef {{ morningSnack: boolean }} Settings */
+/** @typedef {{ morningSnack: boolean, confirmations: boolean }} Settings */
 
 /** @returns {Settings} */
 export function getSettings() {
@@ -16,7 +18,7 @@ export function getSettings() {
 	/** @type {Record<string, string>} */
 	const map = { ...DEFAULTS };
 	for (const r of rows) map[r.key] = r.value;
-	return { morningSnack: map.morning_snack === '1' };
+	return { morningSnack: map.morning_snack === '1', confirmations: map.confirmations === '1' };
 }
 
 /** Valor "cru" de uma definição (ou undefined). @param {string} key */

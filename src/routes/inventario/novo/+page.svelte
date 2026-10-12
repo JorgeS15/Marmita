@@ -26,7 +26,7 @@
 		}}
 	>
 		{#if form?.error}<p class="alert" role="alert">{form.error}</p>{/if}
-		<ItemForm today={data.today} />
+		<ItemForm today={data.today} item={data.defaults} />
 		<button class="btn primary block" disabled={busy}>Adicionar ao inventário</button>
 	</form>
 </main>

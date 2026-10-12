@@ -1,9 +1,13 @@
 import { error, redirect } from '@sveltejs/kit';
-import { addEntry, duplicateEntry, listPending, listToThaw, setThawed, listWeek, moveEntry, removeEntry, setStatus, updateEntry } from '$lib/server/plan.js';
+import { addEntry, autoConsume, duplicateEntry, listPending, listToThaw, setIngredientThawed, setThawed, listWeek, moveEntry, removeEntry, setStatus, updateEntry } from '$lib/server/plan.js';
 import { getItem, listItems } from '$lib/server/items.js';
 import {
 	addPreparation,
+	addIngredient,
 	completePreparation,
+	listIngredients,
+	listPrepMeals,
+	removeIngredient,
 	duplicatePreparation,
 	listOpenPreparations,
 	listWeekPreparations,
@@ -14,6 +18,7 @@ import {
 import { guard } from '$lib/server/forms.js';
 import { ValidationError, date, id, num, oneOf, text } from '$lib/server/validate.js';
 import { listUsers } from '$lib/server/auth.js';
+import { getSettings } from '$lib/server/settings.js';
 import { CATEGORIES, LOCATIONS, SLOT_VALUES } from '$lib/constants.js';
 import { addDays, isISODate, nowParts, weekStartOf } from '$lib/dates.js';
 
@@ -40,15 +45,21 @@ function person(form) {
 export function load({ url }) {
 	const now = nowParts();
 	const start = resolveWeekStart(url.searchParams.get('w'), now.date);
+	const settings = getSettings();
+	if (!settings.confirmations) autoConsume(now);
+	const preparations = listWeekPreparations(start);
+	const prepIds = preparations.map((p) => p.id);
 	return {
 		start,
 		today: now.date,
 		users: listUsers().map((u) => ({ id: u.id, display_name: u.display_name, color: u.color })),
 		entries: listWeek(start),
-		preparations: listWeekPreparations(start),
+		preparations,
+		ingredients: listIngredients(prepIds),
+		prepMeals: listPrepMeals(prepIds),
 		openPreps: listOpenPreparations(addDays(now.date, -14)),
 		toThaw: listToThaw(now.date),
-		pending: listPending(now),
+		pending: settings.confirmations ? listPending(now) : [],
 		items: listItems().map((i) => ({
 			id: i.id,
 			name: i.name,
@@ -63,6 +74,8 @@ export function load({ url }) {
 
 /** Volta à semana de onde veio o formulário (fecha o painel). @param {FormData} form */
 function back(form) {
+	const prep = Number(form.get('prep'));
+	if (prep > 0) backToPrep(form, prep);
 	const w = form.get('w');
 	const start = typeof w === 'string' && isISODate(w) ? weekStartOf(w) : null;
 	redirect(303, start ? `/?w=${start}` : '/');
@@ -84,6 +97,13 @@ function parsePrep(form) {
 		notes: text(form, 'notes', { max: 2000, label: 'Notas' }),
 		person_id: person(form)
 	};
+}
+
+/** Volta ao painel da preparação (sem o fechar). @param {FormData} form @param {number} prepId */
+function backToPrep(form, prepId) {
+	const w = form.get('w');
+	const start = typeof w === 'string' && isISODate(w) ? weekStartOf(w) : null;
+	redirect(303, `/?${start ? `w=${start}&` : ''}preparacao=${prepId}`);
 }
 
 /** @param {boolean} found @param {string} [what] */
@@ -170,7 +190,12 @@ export const actions = {
 	thaw: ({ request, locals }) =>
 		guard(async () => {
 			const form = await request.formData();
-			ensure(setThawed(id(form), form.get('undo') !== '1', locals.user.id));
+			const thawed = form.get('undo') !== '1';
+			const ok =
+				form.get('kind') === 'ingredient'
+					? setIngredientThawed(id(form), thawed)
+					: setThawed(id(form), thawed, locals.user.id);
+			ensure(ok);
 			back(form);
 		}),
 
@@ -217,18 +242,19 @@ export const actions = {
 		guard(async () => {
 			const form = await request.formData();
 			const targetRaw = form.get('target');
-			const target = targetRaw ? id(form, 'target') : null;
-			if (target != null && !getItem(target)) throw new ValidationError('Esse item já não existe.');
+			/** @type {number | null | 'none'} */
+			const target = targetRaw === 'none' ? 'none' : targetRaw ? id(form, 'target') : null;
+			if (typeof target === 'number' && !getItem(target)) throw new ValidationError('Esse item já não existe.');
 			ensure(
 				completePreparation(
 					id(form),
 					{
-						units: num(form, 'units', { min: 0.1, max: 999, label: 'Doses' }),
+						units: target === 'none' ? 0 : num(form, 'units', { min: 0.1, max: 999, label: 'Doses' }),
 						target,
 						name: text(form, 'name', { required: target == null, max: 100, label: 'Nome' }),
 						category: oneOf(form, 'category', CATEGORIES.map((c) => c.value), { fallback: 'outro', label: 'Categoria' }),
 						location: oneOf(form, 'location', LOCATIONS.map((l) => l.value), { fallback: 'congelador', label: 'Local' }),
-						stored_on: /** @type {string} */ (date(form, 'stored_on', { required: true, label: 'Data' })),
+						stored_on: /** @type {string} */ (date(form, 'stored_on', { required: target !== 'none', label: 'Data' })),
 						best_before: date(form, 'best_before', { label: 'Consumir até' }),
 						notes: text(form, 'item_notes', { max: 1000, label: 'Notas' })
 					},
@@ -237,6 +263,44 @@ export const actions = {
 				'Preparação não encontrada ou já confirmada.'
 			);
 			back(form);
+		}),
+
+	prepMeal: ({ request, locals }) =>
+		guard(async () => {
+			const form = await request.formData();
+			const prepId = id(form);
+			addEntry(
+				{
+					date: /** @type {string} */ (date(form, 'date', { required: true, label: 'Dia' })),
+					slot: oneOf(form, 'slot', SLOT_VALUES, { label: 'Refeição' }),
+					item_id: null,
+					prep_id: prepId,
+					title: null,
+					units: num(form, 'units', { min: 0.1, max: 99, fallback: 1, label: 'Doses' }),
+					notes: '',
+					person_id: person(form)
+				},
+				locals.user.id
+			);
+			backToPrep(form, prepId);
+		}),
+
+	prepIngredientAdd: ({ request }) =>
+		guard(async () => {
+			const form = await request.formData();
+			const prepId = id(form);
+			const itemId = id(form, 'item_id');
+			if (!getItem(itemId)) throw new ValidationError('Esse item já não existe.');
+			const units = num(form, 'units', { min: 0.1, max: 999, fallback: 1, label: 'Doses' });
+			ensure(addIngredient(prepId, itemId, units), 'Preparação não encontrada ou já feita.');
+			backToPrep(form, prepId);
+		}),
+
+	prepIngredientRemove: ({ request }) =>
+		guard(async () => {
+			const form = await request.formData();
+			ensure(removeIngredient(id(form, 'ingredient_id')), 'Ingrediente não encontrado.');
+			backToPrep(form, id(form));
 		}),
 
 	prepUndo: ({ request, locals }) =>
