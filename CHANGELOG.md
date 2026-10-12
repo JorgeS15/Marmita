@@ -3,6 +3,14 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.8.0] - 2026-10-12
+
+### Added
+- **Ideias → calendário**: botão "📅 Planear" na ideia para a levar para o calendário como **refeição** (dia, refeição e pessoa) ou como **preparação**, num ou em vários dias. Por omissão é copiada; com "Tirar das ideias" é movida (a ideia é apagada e abre-se a semana de destino). O texto da ideia passa para as notas.
+
+### Changed
+- A categoria "Massa/Arroz" passa a chamar-se **"Acompanhamento"**.
+
 ## [1.7.1] - 2026-10-12
 
 ### Changed
