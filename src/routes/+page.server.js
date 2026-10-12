@@ -46,7 +46,7 @@ export function load({ url }) {
 	const now = nowParts();
 	const start = resolveWeekStart(url.searchParams.get('w'), now.date);
 	const settings = getSettings();
-	if (!settings.confirmations) autoConsume(now);
+	if (!settings.confirmations) autoConsume(now, settings.autoConsumeFrom);
 	const preparations = listWeekPreparations(start);
 	const prepIds = preparations.map((p) => p.id);
 	return {
@@ -299,8 +299,9 @@ export const actions = {
 	prepIngredientRemove: ({ request }) =>
 		guard(async () => {
 			const form = await request.formData();
-			ensure(removeIngredient(id(form, 'ingredient_id')), 'Ingrediente não encontrado.');
-			backToPrep(form, id(form));
+			const prepId = id(form);
+			ensure(removeIngredient(id(form, 'ingredient_id'), prepId), 'Ingrediente não encontrado.');
+			backToPrep(form, prepId);
 		}),
 
 	prepUndo: ({ request, locals }) =>

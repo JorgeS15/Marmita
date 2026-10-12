@@ -27,10 +27,11 @@ export const actions = {
 			return fail(429, { username, error: 'Demasiadas tentativas. Tenta novamente daqui a 15 minutos.' });
 		}
 
+		// Conta a tentativa antes de verificar (que é lento), para pedidos em paralelo não passarem o limite.
+		registerFailedLogin(ip, username);
 		const user = findUserByUsername(username);
 		const ok = user ? await verifyPassword(password, user.password_hash) : (await dummyVerify(), false);
 		if (!user || !ok) {
-			registerFailedLogin(ip, username);
 			return fail(400, { username, error: 'Utilizador ou palavra-passe incorretos.' });
 		}
 

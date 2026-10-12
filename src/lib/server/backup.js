@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { env } from '$env/dynamic/private';
@@ -18,10 +18,20 @@ function keep() {
 	return Number.isInteger(n) && n >= 0 ? n : 14;
 }
 
-/** Escreve uma cópia consistente da base de dados (VACUUM INTO) em `file`. @param {string} file */
+/**
+ * Escreve uma cópia consistente da base de dados (VACUUM INTO) em `file`.
+ * Escreve primeiro num ficheiro temporário: uma cópia a meio (disco cheio…) nunca fica com o nome final.
+ * @param {string} file
+ */
 function snapshot(file) {
-	rmSync(file, { force: true });
-	db().exec(`VACUUM INTO '${file.replaceAll("'", "''")}'`);
+	const tmp = `${file}.tmp`;
+	rmSync(tmp, { force: true });
+	try {
+		db().exec(`VACUUM INTO '${tmp.replaceAll("'", "''")}'`);
+		renameSync(tmp, file);
+	} finally {
+		rmSync(tmp, { force: true });
+	}
 }
 
 /** Lista as cópias automáticas, mais recentes primeiro. */

@@ -50,9 +50,11 @@ export const actions = {
 		guard(
 			async () => {
 				const ideaIdNum = ideaId(params.id);
+				const form = await request.formData();
+				// Alterações ainda não guardadas no título/texto são guardadas primeiro.
+				if (form.has('title')) updateIdea(ideaIdNum, parseIdea(form), locals.user.id);
 				const idea = getIdea(ideaIdNum);
 				if (!idea) error(404, 'Ideia não encontrada.');
-				const form = await request.formData();
 				const kind = oneOf(form, 'kind', /** @type {const} */ (['meal', 'prep']), { label: 'Tipo' });
 				const dates = [...new Set(form.getAll('dates').map(String))].sort();
 				if (!dates.length) throw new ValidationError('Escolhe pelo menos um dia.');
@@ -84,7 +86,7 @@ export const actions = {
 		),
 
 	delete: ({ params }) => {
-		deleteIdea(ideaId(params.id));
+		if (!deleteIdea(ideaId(params.id))) error(404, 'Ideia não encontrada.');
 		redirect(303, '/ideias');
 	}
 };

@@ -34,6 +34,7 @@
 <label class="field">
 	<span>Quantidade <span class="hint">(doses/unidades)</span></span>
 	<input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" autocomplete="off" name="quantity" required value={String(item.quantity ?? 1).replace('.', ',')} />
+	{#if item.quantity != null}<input type="hidden" name="quantity_original" value={item.quantity} />{/if}
 </label>
 
 <div class="grid-2">

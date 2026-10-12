@@ -11,6 +11,8 @@
 	/** @type {'meal' | 'prep'} */
 	let kind = $state('meal');
 	let move = $state(false);
+	/** @type {HTMLFormElement | undefined} */
+	let ideaForm = $state();
 	const idea = $derived(data.idea);
 </script>
 
@@ -26,6 +28,7 @@
 		method="POST"
 		action="?/save"
 		class="card stack"
+		bind:this={ideaForm}
 		use:enhance={() => {
 			busy = true;
 			return async ({ update }) => {
@@ -49,7 +52,13 @@
 			method="POST"
 			action="?/plan"
 			class="card stack plan"
-			use:enhance={() => {
+			use:enhance={({ formData }) => {
+				// Leva também o título e o texto como estão agora (mesmo que ainda não guardados).
+				if (ideaForm) {
+					const current = new FormData(ideaForm);
+					formData.set('title', String(current.get('title') ?? ''));
+					formData.set('body', String(current.get('body') ?? ''));
+				}
 				busy = true;
 				return async ({ result, update }) => {
 					await update();

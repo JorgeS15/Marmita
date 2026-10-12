@@ -18,5 +18,8 @@ export async function guard(fn, extra = {}) {
 
 /** Caminho interno seguro para redirecionar (evita open redirects). @param {unknown} next */
 export function safeNext(next) {
-	return typeof next === 'string' && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+	if (typeof next !== 'string' || !next.startsWith('/')) return '/';
+	// "/\evil.com" e caracteres de controlo são lidos pelo browser como "//evil.com".
+	if (/[\\\u0000-\u001f\u007f]/.test(next) || next.startsWith('//')) return '/';
+	return next;
 }

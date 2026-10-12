@@ -230,6 +230,8 @@ export function cookieOptions(event) {
 
 const WINDOW_MS = 15 * 60_000;
 const MAX_ATTEMPTS = 10;
+// Por utilizador o limite é mais largo: senão qualquer pessoa podia bloquear a conta de outra.
+const MAX_ATTEMPTS_USER = 50;
 /** @type {Map<string, number[]>} */
 const attempts = new Map();
 
@@ -246,7 +248,7 @@ function recent(key) {
 export function isRateLimited(ip, username) {
 	return (
 		recent(`ip:${ip}`).length >= MAX_ATTEMPTS ||
-		recent(`user:${username.toLowerCase()}`).length >= MAX_ATTEMPTS
+		recent(`user:${username.toLowerCase()}`).length >= MAX_ATTEMPTS_USER
 	);
 }
 

@@ -4,6 +4,12 @@ import { removeSubscription, saveSubscription, sendToUser } from '$lib/server/no
 /** @param {unknown} v @param {number} max */
 const str = (v, max) => typeof v === 'string' && v.length > 0 && v.length <= max;
 
+/** Chaves da subscrição: ponto P-256 não comprimido (65 bytes) e segredo de 16 bytes. @param {string} p256dh @param {string} auth */
+function validKeys(p256dh, auth) {
+	const pub = Buffer.from(p256dh, 'base64url');
+	return pub.length === 65 && pub[0] === 4 && Buffer.from(auth, 'base64url').length === 16;
+}
+
 /**
  * Regista este dispositivo para receber notificações.
  * Corpo: a subscrição (PushSubscription.toJSON()).
@@ -29,7 +35,8 @@ export async function POST({ request, locals, url }) {
 		!str(sub.endpoint, 2000) ||
 		!sub.endpoint.startsWith('https://') ||
 		!str(sub.keys?.p256dh, 200) ||
-		!str(sub.keys?.auth, 100)
+		!str(sub.keys?.auth, 100) ||
+		!validKeys(sub.keys.p256dh, sub.keys.auth)
 	) {
 		error(400, 'Subscrição inválida.');
 	}

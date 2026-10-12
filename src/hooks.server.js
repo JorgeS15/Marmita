@@ -75,7 +75,7 @@ export async function handle({ event, resolve }) {
 			event.locals.sessionId = session.sessionId;
 			if (session.renewed) event.cookies.set(SESSION_COOKIE, token, cookieOptions(event));
 		} else {
-			event.cookies.delete(SESSION_COOKIE, { path: '/' });
+			event.cookies.delete(SESSION_COOKIE, { path: '/', secure: cookieOptions(event).secure });
 		}
 	}
 

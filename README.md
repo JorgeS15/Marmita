@@ -135,6 +135,7 @@ As migrações da base de dados são aplicadas automaticamente no arranque.
 
 O workflow [`.github/workflows/docker.yml`](.github/workflows/docker.yml):
 
+- em cada **pull request** e em cada push, corre primeiro os testes (`npm run check`, `npm run build`, `npm test`); a imagem só é construída se passarem;
 - em cada **pull request** para o `main`, faz o build da imagem (amd64) só para validar, sem a publicar;
 - em cada **push/merge para o `main`**, faz o build para `linux/amd64` e `linux/arm64` e publica `ghcr.io/jorges15/marmita` com as tags `latest`, a versão do `package.json` (ex.: `1.1.0`) e `sha-<commit>`;
 - em cada **tag `v*`** (ex.: `v1.2.0`), publica também as tags `1.2.0` e `1.2`.
@@ -163,7 +164,14 @@ npm install
 npm run dev        # http://localhost:4004 (dados em ./data)
 npm run check      # verificação de tipos (JSDoc) com svelte-check
 npm run build && npm start   # http://localhost:4004
+npm run build && npm test    # testes (vitest)
 ```
+
+Os testes ficam em `tests/`, cada ficheiro com uma base de dados temporária:
+
+- `plan`, `preparations`: contas do stock (planear, comer, meias doses, duplicar, preparações, ingredientes, desfazer);
+- `auth`, `validate`, `webpush`, `backup`: palavras-passe e sessões, validação de formulários e datas, cifra das notificações (RFC 8291/8292) e cópias de segurança;
+- `http`: arranca o servidor de produção (`build/`) e testa os fluxos de ponta a ponta (setup, login, CSRF, inventário, calendário, ideias, export). É ignorado se ainda não houver build.
 
 Os ícones PNG são gerados por `node scripts/generate-icons.js`, sem dependências.
 

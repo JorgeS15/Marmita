@@ -1,6 +1,7 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
@@ -14,5 +15,12 @@ export default defineConfig({
 	preview: { port: 4004 },
 	ssr: {
 		external: ['node:sqlite']
+	},
+	test: {
+		include: ['tests/**/*.test.js'],
+		setupFiles: ['tests/setup.js'],
+		alias: { '$env/dynamic/private': fileURLToPath(new URL('./tests/env-private.js', import.meta.url)) },
+		// Cada ficheiro tem a sua base de dados temporária.
+		pool: 'forks'
 	}
 });

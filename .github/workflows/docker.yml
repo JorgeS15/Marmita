@@ -1,6 +1,6 @@
 name: Docker
 
-# Constrói a imagem em cada PR (sem publicar) e publica-a no GHCR
+# Corre os testes e constrói a imagem em cada PR (sem publicar) e publica-a no GHCR
 # em cada push/merge para o main (latest, versão do package.json e sha)
 # e em cada tag v*.
 on:
@@ -19,7 +19,29 @@ env:
   IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
+  # Verificação de tipos, build e testes (unitários + servidor de ponta a ponta).
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run check
+
+      - run: npm run build
+
+      - run: npm test
+
   image:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
