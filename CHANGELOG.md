@@ -3,6 +3,11 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.7.1] - 2026-10-12
+
+### Changed
+- No telemóvel, a semana atual começa no dia de hoje: os dias que já passaram ficam escondidos atrás do botão "Mostrar dias anteriores". No ecrã largo continua a grelha completa.
+
 ## [1.7.0] - 2026-10-12
 
 ### Added
