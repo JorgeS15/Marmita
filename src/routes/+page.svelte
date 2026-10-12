@@ -26,6 +26,9 @@
 
 	const days = $derived(weekDays(data.start));
 	const thisWeek = $derived(weekStartOf(data.today));
+	/** Dias desta semana que já passaram (no telemóvel ficam escondidos até pedir). */
+	const pastDays = $derived(data.start === thisWeek ? days.filter((d) => d < data.today).length : 0);
+	let showPast = $state(false);
 	const weekHref = $derived(`/?w=${data.start}`);
 	const everyone = $derived(data.users.length === 2 ? 'Ambos' : 'Todos');
 	const morningSnack = $derived(data.settings.morningSnack);
@@ -254,7 +257,13 @@
 		</details>
 	{/if}
 
-	<div class="week" style="--both: {bothStripe}; --rows: {slots.length + 2}">
+	{#if pastDays > 0}
+		<button type="button" class="btn small ghost past-toggle" onclick={() => (showPast = !showPast)} aria-expanded={showPast}>
+			{showPast ? 'Esconder dias anteriores' : `Mostrar dias anteriores (${pastDays})`}
+		</button>
+	{/if}
+
+	<div class="week" class:hide-past={pastDays > 0 && !showPast} style="--both: {bothStripe}; --rows: {slots.length + 2}">
 		{#each days as day (day)}
 			{@const isToday = day === data.today}
 			{@const preps = prepsByDay[day] ?? []}
@@ -822,6 +831,28 @@
 
 	.week-header .btn.current {
 		opacity: 0.55;
+	}
+
+	/* ——— Dias anteriores (só no telemóvel) ——— */
+	.past-toggle {
+		width: 100%;
+		margin-bottom: 8px;
+		border: 1px dashed var(--border);
+		color: var(--text-muted);
+	}
+
+	.week.hide-past .day.past {
+		display: none;
+	}
+
+	@media (min-width: 960px) {
+		.past-toggle {
+			display: none;
+		}
+
+		.week.hide-past .day.past {
+			display: grid;
+		}
 	}
 
 	/* ——— Tirar do congelador ——— */
