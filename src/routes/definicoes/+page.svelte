@@ -60,10 +60,10 @@
 				<label class="toggle">
 					<input type="checkbox" name="confirmations" value="1" checked={data.settings.confirmations} />
 					<span>
-						<strong>Confirmar o que foi comido</strong>
+						<strong>Confirmar o que foi consumido</strong>
 						<span class="muted small">
-							Ligado, as refeições que já passaram ficam "Por confirmar" (Comido / Não comido). Desligado, contam
-							automaticamente como comidas e saem do stock quando passa a hora da refeição.
+							Ligado, as refeições que já passaram ficam "Por confirmar" (Consumido / Não consumido). Desligado, contam
+							automaticamente como consumidas e saem do stock quando passa a hora da refeição.
 						</span>
 					</span>
 				</label>

@@ -187,7 +187,7 @@
 
 	/** @param {Entry} e */
 	const statusLabel = (e) =>
-		e.status === 'eaten' ? 'comida' : e.status === 'skipped' ? 'não comida' : 'planeada';
+		e.status === 'eaten' ? 'consumida' : e.status === 'skipped' ? 'não consumida' : 'planeada';
 </script>
 
 <svelte:head><title>Semana · Marmita</title></svelte:head>
@@ -256,12 +256,12 @@
 							<form method="POST" action="?/status" use:enhance={submit()}>
 								<input type="hidden" name="w" value={data.start} />
 								<input type="hidden" name="id" value={e.id} />
-								<button class="btn small ok" name="status" value="eaten">Comido</button>
+								<button class="btn small ok" name="status" value="eaten">Consumido</button>
 							</form>
 							<form method="POST" action="?/status" use:enhance={submit()}>
 								<input type="hidden" name="w" value={data.start} />
 								<input type="hidden" name="id" value={e.id} />
-								<button class="btn small" name="status" value="skipped">Não comido</button>
+								<button class="btn small" name="status" value="skipped">Não consumido</button>
 							</form>
 						</div>
 					</li>
@@ -692,7 +692,7 @@
 			<div class="row">
 				<span class="person-badge" style={personStyle(e)}><span class="dot" aria-hidden="true"></span>{personLabel(e)}</span>
 				<span class="badge" class:ok={e.status === 'eaten'} class:accent={e.status === 'planned'}>
-					{e.status === 'planned' ? 'Planeada' : e.status === 'eaten' ? 'Comida' : 'Não comida'}
+					{e.status === 'planned' ? 'Planeada' : e.status === 'eaten' ? 'Consumida' : 'Não consumida'}
 				</span>
 				{#if e.status === 'planned' && e.item_id != null && (e.item_free ?? 0) < 0}
 					<span class="badge danger">Planeaste mais do que tens</span>
@@ -737,12 +737,27 @@
 			<form method="POST" action="?/status" class="status-actions" use:enhance={submit()}>
 				<input type="hidden" name="w" value={data.start} />
 				<input type="hidden" name="id" value={e.id} />
-				{#if e.status === 'planned'}
-					<button class="btn ok" name="status" value="eaten">✓ Comido</button>
-					<button class="btn" name="status" value="skipped">✕ Não comido</button>
-				{:else}
-					<button class="btn" name="status" value="planned">↺ Desfazer</button>
-				{/if}
+				<!-- Os dois botões ficam sempre visíveis: o escolhido fica marcado e tocar-lhe outra vez desfaz. -->
+				<button
+					class="btn ok"
+					class:chosen={e.status === 'eaten'}
+					name="status"
+					value={e.status === 'eaten' ? 'planned' : 'eaten'}
+					aria-pressed={e.status === 'eaten'}
+					title={e.status === 'eaten' ? 'Tocar outra vez para desfazer' : undefined}
+				>
+					✓ Consumido
+				</button>
+				<button
+					class="btn"
+					class:chosen={e.status === 'skipped'}
+					name="status"
+					value={e.status === 'skipped' ? 'planned' : 'skipped'}
+					aria-pressed={e.status === 'skipped'}
+					title={e.status === 'skipped' ? 'Tocar outra vez para desfazer' : undefined}
+				>
+					✕ Não consumido
+				</button>
 			</form>
 
 			<details class="sub">
@@ -1239,6 +1254,17 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
 		gap: 8px;
+	}
+
+	.status-actions .btn.chosen {
+		background: var(--text);
+		border-color: var(--text);
+		color: var(--surface);
+	}
+
+	.status-actions .btn.ok.chosen {
+		background: var(--ok);
+		border-color: var(--ok);
 	}
 
 	.sub {

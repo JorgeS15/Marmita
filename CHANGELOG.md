@@ -3,6 +3,12 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.9.1] - 2026-10-12
+
+### Changed
+- "Comido" / "Não comido" passa a **"Consumido" / "Não consumido"** (e "Consumida" / "Não consumida" no estado da refeição).
+- No painel da refeição, os dois botões ficam sempre visíveis depois de escolher: o escolhido fica marcado (a cheio), tocar no outro muda diretamente e tocar outra vez no escolhido desfaz. Deixa de haver o botão "Desfazer" sozinho.
+
 ## [1.9.0] - 2026-10-12
 
 ### Added
