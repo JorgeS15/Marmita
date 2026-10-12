@@ -3,7 +3,7 @@ export const CATEGORIES = /** @type {const} */ ([
 	{ value: 'peixe', label: 'Peixe' },
 	{ value: 'vegetariano', label: 'Vegetariano' },
 	{ value: 'sopa', label: 'Sopa' },
-	{ value: 'massa_arroz', label: 'Massa/Arroz' },
+	{ value: 'massa_arroz', label: 'Acompanhamento' },
 	{ value: 'sobremesa', label: 'Sobremesa' },
 	{ value: 'pequeno_almoco', label: 'Pequeno-almoço' },
 	{ value: 'lanche', label: 'Lanche' },
