@@ -84,7 +84,7 @@ export const actions = {
 		),
 
 	delete: ({ params }) => {
-		deleteIdea(ideaId(params.id));
+		if (!deleteIdea(ideaId(params.id))) error(404, 'Ideia não encontrada.');
 		redirect(303, '/ideias');
 	}
 };

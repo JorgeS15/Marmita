@@ -1,4 +1,5 @@
 import { db, transaction } from './db.js';
+import { returnStock, takeStock } from './plan.js';
 import { addDays } from '$lib/dates.js';
 
 /**
@@ -14,11 +15,12 @@ import { addDays } from '$lib/dates.js';
  * @property {number | null} item_id
  * @property {string | null} item_name
  * @property {number} units_added
+ * @property {number} created_item
  * @property {string | null} created_by_name
  */
 
 const SELECT = `
-	SELECT p.id, p.date, p.title, p.notes, p.person_id, p.status, p.item_id, p.units_added,
+	SELECT p.id, p.date, p.title, p.notes, p.person_id, p.status, p.item_id, p.units_added, p.created_item,
 	       pu.display_name AS person_name, pu.color AS person_color,
 	       i.name AS item_name, cu.display_name AS created_by_name
 	FROM preparations p
@@ -137,6 +139,7 @@ export function completePreparation(id, d, userId) {
 			return true;
 		}
 		let itemId = d.target;
+		let created = 0;
 		if (itemId != null) {
 			const res = db()
 				.prepare(
@@ -153,22 +156,22 @@ export function completePreparation(id, d, userId) {
 				)
 				.run(d.name, d.category, d.location, d.units, d.stored_on, d.best_before, d.notes, userId, userId);
 			itemId = Number(res.lastInsertRowid);
+			created = 1;
 		}
 		db()
 			.prepare(
-				`UPDATE preparations SET status = 'done', item_id = ?, units_added = ?, updated_by = ?,
+				`UPDATE preparations SET status = 'done', item_id = ?, units_added = ?, created_item = ?, updated_by = ?,
 				   updated_at = datetime('now') WHERE id = ?`
 			)
-			.run(itemId, d.units, userId, id);
-		// Refeições já planeadas com esta preparação passam a usar o item (contam no stock).
-		const eaten = /** @type {{ n: number }} */ (
-			db()
-				.prepare(`SELECT COALESCE(SUM(units), 0) AS n FROM plan_entries WHERE prep_id = ? AND status = 'eaten'`)
-				.get(id)
-		).n;
+			.run(itemId, d.units, created, userId, id);
+		// Refeições já planeadas com esta preparação passam a usar o item (contam no stock);
+		// as que já foram comidas descontam agora.
 		db().prepare('UPDATE plan_entries SET item_id = ? WHERE prep_id = ?').run(itemId, id);
-		if (eaten > 0) {
-			db().prepare('UPDATE items SET quantity = ROUND(MAX(0, quantity - ?), 2) WHERE id = ?').run(eaten, itemId);
+		const eaten = /** @type {{ id: number, units: number }[]} */ (
+			db().prepare(`SELECT id, units FROM plan_entries WHERE prep_id = ? AND status = 'eaten' ORDER BY date, id`).all(id)
+		);
+		for (const e of eaten) {
+			db().prepare('UPDATE plan_entries SET deducted = ? WHERE id = ?').run(takeStock(itemId, e.units), e.id);
 		}
 		return true;
 	});
@@ -181,20 +184,28 @@ export function undoPreparation(id, userId) {
 		if (!prep || prep.status !== 'done') return false;
 		restoreIngredients(id);
 		if (prep.item_id != null) {
-			// Devolve as doses já comidas destas refeições e retira as que a preparação tinha somado.
-			const eaten = /** @type {{ n: number }} */ (
-				db()
-					.prepare(`SELECT COALESCE(SUM(units), 0) AS n FROM plan_entries WHERE prep_id = ? AND status = 'eaten'`)
-					.get(id)
+			// Devolve o que as refeições comidas tinham descontado e retira as doses que a preparação somou.
+			const back = /** @type {{ n: number }} */ (
+				db().prepare(`SELECT COALESCE(SUM(deducted), 0) AS n FROM plan_entries WHERE prep_id = ? AND status = 'eaten'`).get(id)
 			).n;
-			db()
-				.prepare(`UPDATE items SET quantity = ROUND(MAX(0, quantity + ? - ?), 2), updated_at = datetime('now') WHERE id = ?`)
-				.run(eaten, prep.units_added, prep.item_id);
-			db().prepare('UPDATE plan_entries SET item_id = NULL WHERE prep_id = ?').run(id);
+			returnStock(prep.item_id, back);
+			takeStock(prep.item_id, prep.units_added);
+			db().prepare('UPDATE plan_entries SET item_id = NULL, deducted = 0 WHERE prep_id = ?').run(id);
+			// O item criado por esta preparação desaparece, se nada mais o usar.
+			if (prep.created_item) {
+				db()
+					.prepare(
+						`DELETE FROM items WHERE id = ? AND quantity = 0
+						   AND NOT EXISTS (SELECT 1 FROM plan_entries WHERE item_id = items.id)
+						   AND NOT EXISTS (SELECT 1 FROM prep_ingredients WHERE item_id = items.id)
+						   AND NOT EXISTS (SELECT 1 FROM preparations WHERE item_id = items.id AND id != ?)`
+					)
+					.run(prep.item_id, id);
+			}
 		}
 		db()
 			.prepare(
-				`UPDATE preparations SET status = 'planned', item_id = NULL, units_added = 0, updated_by = ?,
+				`UPDATE preparations SET status = 'planned', item_id = NULL, units_added = 0, created_item = 0, updated_by = ?,
 				   updated_at = datetime('now') WHERE id = ?`
 			)
 			.run(userId, id);
@@ -231,34 +242,25 @@ export function addIngredient(prepId, itemId, units) {
 	return true;
 }
 
-/** @param {number} id ingrediente */
-export function removeIngredient(id) {
+/** @param {number} id ingrediente @param {number} prepId */
+export function removeIngredient(id, prepId) {
 	return (
 		db()
 			.prepare(
-				`DELETE FROM prep_ingredients WHERE id = ?
+				`DELETE FROM prep_ingredients WHERE id = ? AND prep_id = ?
 				   AND prep_id IN (SELECT id FROM preparations WHERE status = 'planned')`
 			)
-			.run(id).changes > 0
+			.run(id, prepId).changes > 0
 	);
 }
 
 /** Desconta os ingredientes do stock (guarda quanto foi mesmo descontado). @param {number} prepId */
 function consumeIngredients(prepId) {
-	const rows = /** @type {{ id: number, item_id: number, units: number, quantity: number }[]} */ (
-		db()
-			.prepare(
-				`SELECT g.id, g.item_id, g.units, i.quantity FROM prep_ingredients g
-				 JOIN items i ON i.id = g.item_id WHERE g.prep_id = ?`
-			)
-			.all(prepId)
+	const rows = /** @type {{ id: number, item_id: number, units: number }[]} */ (
+		db().prepare('SELECT id, item_id, units FROM prep_ingredients WHERE prep_id = ? ORDER BY id').all(prepId)
 	);
 	for (const g of rows) {
-		const take = Math.min(g.units, Math.max(0, g.quantity));
-		db()
-			.prepare(`UPDATE items SET quantity = ROUND(MAX(0, quantity - ?), 2), updated_at = datetime('now') WHERE id = ?`)
-			.run(take, g.item_id);
-		db().prepare('UPDATE prep_ingredients SET consumed = ? WHERE id = ?').run(take, g.id);
+		db().prepare('UPDATE prep_ingredients SET consumed = ? WHERE id = ?').run(takeStock(g.item_id, g.units), g.id);
 	}
 }
 

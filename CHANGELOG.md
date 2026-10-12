@@ -3,6 +3,25 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.9.0] - 2026-10-12
+
+### Added
+- **Testes automáticos** (vitest) em `tests/`: contas do stock, preparações e ingredientes, autenticação, validação, datas, notificações push, backups e testes de ponta a ponta contra o servidor de produção. O GitHub Actions corre-os (com `npm run check` e o build) antes de construir a imagem Docker.
+
+### Fixed
+- Stock: desfazer uma refeição comida repõe exatamente o que tinha sido descontado. Antes, comer mais doses do que havia e depois desfazer criava doses do nada. O mesmo ao mudar as doses de uma refeição já comida, ao confirmar/desfazer preparações com refeições já comidas e com o mesmo ingrediente duas vezes.
+- Desfazer uma preparação apaga o item que ela tinha criado (se nada mais o usar), em vez de deixar um item com 0 doses que se repetia ao confirmar outra vez.
+- Desligar as confirmações já não marca como comidas, de uma vez, refeições antigas que tinham ficado por confirmar: só conta a partir desse dia.
+- Editar um item do inventário sem mexer na quantidade já não desfaz descontos feitos entretanto (ex.: refeição marcada como comida com o formulário aberto).
+- Cópias de segurança são escritas num ficheiro temporário e só depois renomeadas, para uma cópia falhada não ocupar o lugar da do dia.
+- Export JSON inclui os ingredientes das preparações e deixa de incluir as chaves privadas das notificações.
+
+### Security
+- Login: o `next` com `\` (ex.: `/\site.com`) já não permite redirecionar para outro site.
+- Limite de tentativas de login contado antes de verificar a palavra-passe (pedidos em paralelo não o contornam); o limite por conta passa a 50, para não ser fácil bloquear a conta de outra pessoa.
+- Subscrições push com chaves inválidas são rejeitadas; criar a mesma conta duas vezes ao mesmo tempo dá erro de validação em vez de erro 500.
+- Terminar sessão apaga o cookie também em `http://IP`; remover um ingrediente valida a preparação a que pertence; ações sobre itens e ideias inexistentes respondem 404.
+
 ## [1.8.0] - 2026-10-12
 
 ### Added

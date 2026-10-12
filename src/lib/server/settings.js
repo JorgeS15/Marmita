@@ -5,10 +5,12 @@ const DEFAULTS = {
 	/** Há lanche da manhã? Se não, o lanche da tarde passa a chamar-se "Lanche". */
 	morning_snack: '1',
 	/** Pedir confirmação do que foi comido? Se não, as refeições passadas contam como comidas. */
-	confirmations: '1'
+	confirmations: '1',
+	/** Data em que as confirmações foram desligadas ("" = sempre). */
+	auto_consume_from: ''
 };
 
-/** @typedef {{ morningSnack: boolean, confirmations: boolean }} Settings */
+/** @typedef {{ morningSnack: boolean, confirmations: boolean, autoConsumeFrom: string }} Settings */
 
 /** @returns {Settings} */
 export function getSettings() {
@@ -18,7 +20,11 @@ export function getSettings() {
 	/** @type {Record<string, string>} */
 	const map = { ...DEFAULTS };
 	for (const r of rows) map[r.key] = r.value;
-	return { morningSnack: map.morning_snack === '1', confirmations: map.confirmations === '1' };
+	return {
+		morningSnack: map.morning_snack === '1',
+		confirmations: map.confirmations === '1',
+		autoConsumeFrom: map.auto_consume_from
+	};
 }
 
 /** Valor "cru" de uma definição (ou undefined). @param {string} key */

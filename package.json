@@ -1,6 +1,6 @@
 {
   "name": "marmita",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Planeador de refeições caseiro: inventário e calendário semanal",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "preview": "vite preview",
     "start": "PORT=${PORT:-4004} node --disable-warning=ExperimentalWarning build",
     "check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
-    "test": "node --disable-warning=ExperimentalWarning --test tests/"
+    "test": "vitest run"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.5.7",
@@ -24,6 +24,7 @@
     "svelte": "^5.57.2",
     "svelte-check": "^4.0.0",
     "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^3.2.7"
   }
 }

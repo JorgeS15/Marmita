@@ -13,7 +13,8 @@ import {
 import { guard } from '$lib/server/forms.js';
 import { oneOf, text } from '$lib/server/validate.js';
 import { PERSON_COLORS } from '$lib/constants.js';
-import { setSetting } from '$lib/server/settings.js';
+import { getSettings, setSetting } from '$lib/server/settings.js';
+import { nowParts } from '$lib/dates.js';
 import { listBackups } from '$lib/server/backup.js';
 import { KINDS, countSubscriptions, getPrefs, setPrefs, vapid } from '$lib/server/notifications.js';
 import { validateNewUser, validatePassword } from '$lib/server/users.js';
@@ -53,7 +54,10 @@ export const actions = {
 	house: async ({ request }) => {
 		const form = await request.formData();
 		setSetting('morning_snack', form.get('morning_snack') === '1' ? '1' : '0');
-		setSetting('confirmations', form.get('confirmations') === '1' ? '1' : '0');
+		const confirmations = form.get('confirmations') === '1';
+		// Ao desligar, só as refeições a partir de hoje passam a contar como comidas sozinhas.
+		if (!confirmations && getSettings().confirmations) setSetting('auto_consume_from', nowParts().date);
+		setSetting('confirmations', confirmations ? '1' : '0');
 		return { section: 'house', ok: 'Definições da casa guardadas.' };
 	},
 
@@ -98,7 +102,13 @@ export const actions = {
 				if (findUserByUsername(data.username)) {
 					return fail(400, { section: 'addUser', error: 'Esse nome de utilizador já existe.' });
 				}
-				await createUser(data);
+				try {
+					await createUser(data);
+				} catch (err) {
+					// Dois envios ao mesmo tempo: o segundo bate na restrição UNIQUE.
+					if (/UNIQUE/.test(String(err))) return fail(400, { section: 'addUser', error: 'Esse nome de utilizador já existe.' });
+					throw err;
+				}
 				return { section: 'addUser', ok: `Conta "${data.username}" criada.` };
 			},
 			{ section: 'addUser' }

@@ -222,7 +222,8 @@ const pad = (n) => String(n).padStart(2, '0');
 /** Verifica, para cada pessoa com dispositivos, que notificações já devem ter saído hoje. */
 export async function tick() {
 	const now = nowParts();
-	if (!getSettings().confirmations) autoConsume(now);
+	const settings = getSettings();
+	if (!settings.confirmations) autoConsume(now, settings.autoConsumeFrom);
 	const hhmm = `${pad(now.hour)}:${pad(now.minute)}`;
 	const users = /** @type {{ user_id: number }[]} */ (
 		db().prepare('SELECT DISTINCT user_id FROM push_subscriptions').all()

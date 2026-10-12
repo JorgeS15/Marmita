@@ -126,12 +126,15 @@ export function setIngredientThawed(id, thawed) {
 
 /**
  * Com as confirmações desligadas: as refeições que já passaram contam como comidas.
+ * Só a partir do dia em que as confirmações foram desligadas (`from`), para não
+ * descontar de uma vez refeições antigas que ficaram por confirmar.
  * @param {{ date: string, hour: number }} now
+ * @param {string} [from]
  */
-export function autoConsume(now) {
+export function autoConsume(now, from = '') {
 	let n = 0;
 	for (const e of listPending(now)) {
-		if (setStatus(e.id, 'eaten', null)) n++;
+		if (e.date >= from && setStatus(e.id, 'eaten', null)) n++;
 	}
 	return n;
 }
@@ -192,17 +195,31 @@ export function addEntry(d, userId) {
 
 /** @param {number} id */
 function rawEntry(id) {
-	return /** @type {{ id: number, item_id: number | null, units: number, status: string, date: string, slot: string } | undefined} */ (
-		db().prepare('SELECT id, item_id, units, status, date, slot FROM plan_entries WHERE id = ?').get(id)
+	return /** @type {{ id: number, item_id: number | null, units: number, status: string, date: string, slot: string, deducted: number } | undefined} */ (
+		db().prepare('SELECT id, item_id, units, status, date, slot, deducted FROM plan_entries WHERE id = ?').get(id)
 	);
 }
 
-/** @param {number | null} itemId @param {number} delta */
-function changeStock(itemId, delta) {
-	if (itemId == null || delta === 0) return;
-	db()
-		.prepare(`UPDATE items SET quantity = ROUND(MAX(0, quantity + ?), 2), updated_at = datetime('now') WHERE id = ?`)
-		.run(delta, itemId);
+/**
+ * Desconta até `units` doses do item (nunca abaixo de 0) e devolve quanto foi
+ * realmente descontado, para se poder repor exatamente isso.
+ * @param {number | null} itemId @param {number} units
+ */
+export function takeStock(itemId, units) {
+	if (itemId == null || units <= 0) return 0;
+	const row = /** @type {{ quantity: number } | undefined} */ (db().prepare('SELECT quantity FROM items WHERE id = ?').get(itemId));
+	if (!row) return 0;
+	const take = Math.round(Math.min(units, Math.max(0, row.quantity)) * 100) / 100;
+	if (take > 0) {
+		db().prepare(`UPDATE items SET quantity = ROUND(quantity - ?, 2), updated_at = datetime('now') WHERE id = ?`).run(take, itemId);
+	}
+	return take;
+}
+
+/** Repõe doses que tinham sido descontadas. @param {number | null} itemId @param {number} units */
+export function returnStock(itemId, units) {
+	if (itemId == null || units <= 0) return;
+	db().prepare(`UPDATE items SET quantity = ROUND(quantity + ?, 2), updated_at = datetime('now') WHERE id = ?`).run(units, itemId);
 }
 
 /**
@@ -216,14 +233,18 @@ export function updateEntry(id, d, userId) {
 	return transaction(() => {
 		const e = rawEntry(id);
 		if (!e) return false;
-		if (e.status === 'eaten') changeStock(e.item_id, e.units - d.units);
+		let deducted = e.deducted;
+		if (e.status === 'eaten' && d.units !== e.units) {
+			returnStock(e.item_id, e.deducted);
+			deducted = takeStock(e.item_id, d.units);
+		}
 		const setTitle = e.item_id == null && d.title ? d.title : null;
 		db()
 			.prepare(
-				`UPDATE plan_entries SET units = ?, notes = ?, person_id = ?, title = COALESCE(?, title),
+				`UPDATE plan_entries SET units = ?, notes = ?, person_id = ?, title = COALESCE(?, title), deducted = ?,
 				   updated_by = ?, updated_at = datetime('now') WHERE id = ?`
 			)
-			.run(d.units, d.notes, d.person_id, setTitle, userId, id);
+			.run(d.units, d.notes, d.person_id, setTitle, deducted, userId, id);
 		return true;
 	});
 }
@@ -247,7 +268,7 @@ export function moveEntry(id, date, slot, userId) {
 /**
  * Muda o estado e acerta o stock:
  *  - passar a "eaten" desconta as doses (sem descer abaixo de 0);
- *  - sair de "eaten" repõe as doses.
+ *  - sair de "eaten" repõe o que tinha sido descontado.
  * @param {number} id
  * @param {'planned' | 'eaten' | 'skipped'} status
  * @param {number | null} userId
@@ -257,13 +278,15 @@ export function setStatus(id, status, userId) {
 		const e = rawEntry(id);
 		if (!e) return false;
 		if (e.status === status) return true;
-		let delta = 0;
-		if (e.status === 'eaten') delta += e.units;
-		if (status === 'eaten') delta -= e.units;
-		changeStock(e.item_id, delta);
+		let deducted = e.deducted;
+		if (e.status === 'eaten') {
+			returnStock(e.item_id, e.deducted);
+			deducted = 0;
+		}
+		if (status === 'eaten') deducted = takeStock(e.item_id, e.units);
 		db()
-			.prepare(`UPDATE plan_entries SET status = ?, updated_by = ?, updated_at = datetime('now') WHERE id = ?`)
-			.run(status, userId, id);
+			.prepare(`UPDATE plan_entries SET status = ?, deducted = ?, updated_by = ?, updated_at = datetime('now') WHERE id = ?`)
+			.run(status, deducted, userId, id);
 		return true;
 	});
 }
@@ -301,7 +324,9 @@ export function exportAll() {
 		items: db().prepare('SELECT * FROM items ORDER BY id').all(),
 		plan_entries: db().prepare('SELECT * FROM plan_entries ORDER BY date, slot, position, id').all(),
 		preparations: db().prepare('SELECT * FROM preparations ORDER BY date, id').all(),
+		prep_ingredients: db().prepare('SELECT * FROM prep_ingredients ORDER BY id').all(),
 		ideas: db().prepare('SELECT * FROM ideas ORDER BY id').all(),
-		settings: db().prepare('SELECT * FROM settings ORDER BY key').all()
+		// Sem as chaves VAPID: com a privada, quem tivesse o ficheiro podia enviar notificações.
+		settings: db().prepare(`SELECT * FROM settings WHERE key NOT LIKE 'vapid%' ORDER BY key`).all()
 	};
 }
