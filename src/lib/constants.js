@@ -57,8 +57,8 @@ export const PERSON_COLORS = /** @type {const} */ ([
 
 export const STATUSES = /** @type {const} */ ([
 	{ value: 'planned', label: 'Planeada' },
-	{ value: 'eaten', label: 'Comida' },
-	{ value: 'skipped', label: 'Não comida' }
+	{ value: 'eaten', label: 'Consumida' },
+	{ value: 'skipped', label: 'Não consumida' }
 ]);
 
 /** Hora (local) a partir da qual um slot de hoje passa a "por confirmar". */
