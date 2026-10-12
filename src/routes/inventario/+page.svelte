@@ -22,6 +22,15 @@
 	}
 
 	const filtered = $derived(data.items.filter(matches));
+
+	/** O novo item herda os filtros ativos (local e categoria). */
+	const newHref = $derived.by(() => {
+		const params = new URLSearchParams();
+		if (location) params.set('local', location);
+		if (category) params.set('categoria', category);
+		const qs = params.toString();
+		return `/inventario/novo${qs ? `?${qs}` : ''}`;
+	});
 	const available = $derived(filtered.filter((i) => i.quantity > 0 || i.planned > 0));
 	const soldOut = $derived(filtered.filter((i) => i.quantity === 0 && i.planned === 0));
 
@@ -97,7 +106,7 @@
 <main class="page narrow">
 	<header class="page-header">
 		<h1>Inventário</h1>
-		<a class="btn primary" href="/inventario/novo">+ Adicionar</a>
+		<a class="btn primary" href={newHref}>+ Adicionar</a>
 	</header>
 
 	<form class="filters stack" method="GET" onsubmit={(e) => e.preventDefault()} role="search">

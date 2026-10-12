@@ -2,7 +2,7 @@ import { env } from '$env/dynamic/private';
 import { db } from './db.js';
 import { getRawSetting, getSettings, setSetting } from './settings.js';
 import { generateVapidKeys, sendPush } from './webpush.js';
-import { listPending } from './plan.js';
+import { autoConsume, listPending } from './plan.js';
 import { addDays, nowParts } from '$lib/dates.js';
 import { slotLabel } from '$lib/constants.js';
 
@@ -108,10 +108,25 @@ const COMPOSERS = {
 				)
 				.all(tomorrow, userId)
 		);
-		if (!rows.length) return null;
+		// Ingredientes de preparações de amanhã.
+		const ingredients = /** @type {{ name: string, prep: string }[]} */ (
+			db()
+				.prepare(
+					`SELECT i.name, pr.title AS prep FROM prep_ingredients g
+					 JOIN preparations pr ON pr.id = g.prep_id JOIN items i ON i.id = g.item_id
+					 WHERE pr.date = ? AND pr.status = 'planned' AND g.thawed = 0 AND i.location = 'congelador'
+					   AND (pr.person_id IS NULL OR pr.person_id = ?)`
+				)
+				.all(tomorrow, userId)
+		);
+		const names = [
+			...rows.map((r) => `${r.name} (${slotLabel(r.slot, morning).toLowerCase()})`),
+			...ingredients.map((g) => `${g.name} (para ${g.prep})`)
+		];
+		if (!names.length) return null;
 		return {
 			title: '🧊 Tirar do congelador',
-			body: `Para amanhã: ${listNames(rows.map((r) => `${r.name} (${slotLabel(r.slot, morning).toLowerCase()})`))}`,
+			body: `Para amanhã: ${listNames(names)}`,
 			url: '/',
 			tag: 'thaw'
 		};
@@ -136,6 +151,7 @@ const COMPOSERS = {
 	},
 
 	pending(userId, now) {
+		if (!getSettings().confirmations) return null;
 		const rows = listPending(now).filter((e) => e.person_id == null || e.person_id === userId);
 		if (!rows.length) return null;
 		return {
@@ -206,6 +222,7 @@ const pad = (n) => String(n).padStart(2, '0');
 /** Verifica, para cada pessoa com dispositivos, que notificações já devem ter saído hoje. */
 export async function tick() {
 	const now = nowParts();
+	if (!getSettings().confirmations) autoConsume(now);
 	const hhmm = `${pad(now.hour)}:${pad(now.minute)}`;
 	const users = /** @type {{ user_id: number }[]} */ (
 		db().prepare('SELECT DISTINCT user_id FROM push_subscriptions').all()

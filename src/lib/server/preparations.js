@@ -115,16 +115,27 @@ export function itemsNamed(title) {
 }
 
 /**
- * Confirma a preparação: cria um item novo ou soma as doses a um existente.
+ * Confirma a preparação: desconta os ingredientes e cria um item novo, soma as
+ * doses a um existente, ou (target 'none') não põe nada no inventário.
  * @param {number} id
- * @param {{ units: number, target: number | null, name: string, category: string, location: string,
- *   stored_on: string, best_before: string | null, notes: string }} d  target = item existente ou null (novo)
+ * @param {{ units: number, target: number | null | 'none', name: string, category: string, location: string,
+ *   stored_on: string, best_before: string | null, notes: string }} d
  * @param {number} userId
  */
 export function completePreparation(id, d, userId) {
 	return transaction(() => {
 		const prep = getPreparation(id);
 		if (!prep || prep.status === 'done') return false;
+		consumeIngredients(id);
+		if (d.target === 'none') {
+			db()
+				.prepare(
+					`UPDATE preparations SET status = 'done', item_id = NULL, units_added = 0, updated_by = ?,
+					   updated_at = datetime('now') WHERE id = ?`
+				)
+				.run(userId, id);
+			return true;
+		}
 		let itemId = d.target;
 		if (itemId != null) {
 			const res = db()
@@ -168,6 +179,7 @@ export function undoPreparation(id, userId) {
 	return transaction(() => {
 		const prep = getPreparation(id);
 		if (!prep || prep.status !== 'done') return false;
+		restoreIngredients(id);
 		if (prep.item_id != null) {
 			// Devolve as doses já comidas destas refeições e retira as que a preparação tinha somado.
 			const eaten = /** @type {{ n: number }} */ (
@@ -188,4 +200,96 @@ export function undoPreparation(id, userId) {
 			.run(userId, id);
 		return true;
 	});
+}
+
+// ——— Ingredientes (itens do inventário usados na preparação) ———
+
+/**
+ * @typedef {{ id: number, prep_id: number, item_id: number, units: number, consumed: number,
+ *   thawed: number, name: string, location: string, free: number }} Ingredient
+ */
+
+/** @param {number[]} prepIds @returns {Ingredient[]} */
+export function listIngredients(prepIds) {
+	if (!prepIds.length) return [];
+	return /** @type {any} */ (
+		db()
+			.prepare(
+				`SELECT g.*, s.name, s.location, s.free FROM prep_ingredients g
+				 JOIN item_stock s ON s.id = g.item_id
+				 WHERE g.prep_id IN (${prepIds.map(() => '?').join(',')}) ORDER BY g.id`
+			)
+			.all(...prepIds)
+	);
+}
+
+/** @param {number} prepId @param {number} itemId @param {number} units */
+export function addIngredient(prepId, itemId, units) {
+	const prep = getPreparation(prepId);
+	if (!prep || prep.status !== 'planned') return false;
+	db().prepare('INSERT INTO prep_ingredients (prep_id, item_id, units) VALUES (?, ?, ?)').run(prepId, itemId, units);
+	return true;
+}
+
+/** @param {number} id ingrediente */
+export function removeIngredient(id) {
+	return (
+		db()
+			.prepare(
+				`DELETE FROM prep_ingredients WHERE id = ?
+				   AND prep_id IN (SELECT id FROM preparations WHERE status = 'planned')`
+			)
+			.run(id).changes > 0
+	);
+}
+
+/** Desconta os ingredientes do stock (guarda quanto foi mesmo descontado). @param {number} prepId */
+function consumeIngredients(prepId) {
+	const rows = /** @type {{ id: number, item_id: number, units: number, quantity: number }[]} */ (
+		db()
+			.prepare(
+				`SELECT g.id, g.item_id, g.units, i.quantity FROM prep_ingredients g
+				 JOIN items i ON i.id = g.item_id WHERE g.prep_id = ?`
+			)
+			.all(prepId)
+	);
+	for (const g of rows) {
+		const take = Math.min(g.units, Math.max(0, g.quantity));
+		db()
+			.prepare(`UPDATE items SET quantity = ROUND(MAX(0, quantity - ?), 2), updated_at = datetime('now') WHERE id = ?`)
+			.run(take, g.item_id);
+		db().prepare('UPDATE prep_ingredients SET consumed = ? WHERE id = ?').run(take, g.id);
+	}
+}
+
+/** Repõe no stock o que os ingredientes tinham descontado. @param {number} prepId */
+function restoreIngredients(prepId) {
+	const rows = /** @type {{ id: number, item_id: number, consumed: number }[]} */ (
+		db().prepare('SELECT id, item_id, consumed FROM prep_ingredients WHERE prep_id = ?').all(prepId)
+	);
+	for (const g of rows) {
+		if (g.consumed > 0) {
+			db()
+				.prepare(`UPDATE items SET quantity = ROUND(quantity + ?, 2), updated_at = datetime('now') WHERE id = ?`)
+				.run(g.consumed, g.item_id);
+		}
+		db().prepare('UPDATE prep_ingredients SET consumed = 0 WHERE id = ?').run(g.id);
+	}
+}
+
+/** Refeições planeadas com estas preparações. @param {number[]} prepIds */
+export function listPrepMeals(prepIds) {
+	if (!prepIds.length) return [];
+	/** @typedef {{ id: number, prep_id: number, date: string, slot: string, units: number, status: string,
+	 *   person_id: number | null, person_name: string | null, person_color: string | null }} PrepMeal */
+	return /** @type {PrepMeal[]} */ (
+		db()
+			.prepare(
+				`SELECT p.id, p.prep_id, p.date, p.slot, p.units, p.status, p.person_id,
+				        u.display_name AS person_name, u.color AS person_color
+				 FROM plan_entries p LEFT JOIN users u ON u.id = p.person_id
+				 WHERE p.prep_id IN (${prepIds.map(() => '?').join(',')}) ORDER BY p.date, p.slot`
+			)
+			.all(...prepIds)
+	);
 }

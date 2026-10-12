@@ -7,7 +7,7 @@
 	import PersonPicker from '$lib/components/PersonPicker.svelte';
 	import PrepEditor from '$lib/components/PrepEditor.svelte';
 	import DayChips from '$lib/components/DayChips.svelte';
-	import { CATEGORIES, LOCATIONS, SLOT_VALUES, doses, fmtNum, normalize, slotLabel, slotsFor } from '$lib/constants.js';
+	import { CATEGORIES, LOCATIONS, SLOT_VALUES, doses, fmtNum, labelOf, normalize, slotLabel, slotsFor } from '$lib/constants.js';
 	import {
 		addDays,
 		dayMonth,
@@ -198,17 +198,19 @@
 		<section class="thaw card" aria-labelledby="thaw-title">
 			<h2 id="thaw-title">🧊 Tirar do congelador</h2>
 			<ul>
-				{#each data.toThaw as e (e.id)}
+				{#each data.toThaw as e (`${e.kind}-${e.id}`)}
 					<li style={personStyle(e)}>
-						<a class="what" href={entryHref(e.id)} data-sveltekit-noscroll>
+						<div class="what">
 							<strong>{e.title}</strong>
 							<span class="muted small">
-								{e.date === data.today ? 'Hoje' : 'Amanhã'} · {label(e.slot)}{e.units !== 1 ? ` · ${doses(e.units)}` : ''}
+								{e.date === data.today ? 'Hoje' : 'Amanhã'} ·
+								{e.kind === 'entry' ? label(e.slot ?? '') : `para ${e.prep_title}`}{e.units !== 1 ? ` · ${doses(e.units)}` : ''}
 							</span>
-						</a>
+						</div>
 						<form method="POST" action="?/thaw" use:enhance={submit()}>
 							<input type="hidden" name="w" value={data.start} />
 							<input type="hidden" name="id" value={e.id} />
+							<input type="hidden" name="kind" value={e.kind} />
 							<button class="btn small">Já tirei</button>
 						</form>
 					</li>
@@ -285,6 +287,7 @@
 										<a
 											class="entry {e.status}"
 											class:everyone={e.person_id == null}
+											class:waiting={e.prep_id != null && e.prep_status === 'planned'}
 											class:over={e.status === 'planned' && e.item_id != null && (e.item_free ?? 0) < 0}
 											style={personStyle(e)}
 											href={entryHref(e.id)}
@@ -358,7 +361,7 @@
 
 			<ItemPicker
 				items={data.items}
-				preps={data.openPreps.filter((pr) => pr.date <= addTarget.date && pr.date >= addDays(addTarget.date, -7))}
+				preps={data.openPreps.filter((pr) => pr.date <= addTarget.date && pr.date >= data.today)}
 				today={data.today}
 				bind:selected={selectedItem}
 			/>
@@ -417,6 +420,8 @@
 
 {#if openPrep}
 	{@const p = openPrep}
+	{@const prepMeals = data.prepMeals.filter((m) => m.prep_id === p.id)}
+	{@const prepIngredients = data.ingredients.filter((g) => g.prep_id === p.id)}
 	<BottomSheet
 		title={p.title}
 		subtitle="Preparação · {dayLabel(p.date)} · {personLabel(p)}"
@@ -428,10 +433,18 @@
 			{#if p.status === 'done'}
 				{#if p.notes}<p class="note">{p.notes}</p>{/if}
 				<p class="alert ok" style="margin:0">
-					Preparado: +{doses(p.units_added)}
-					{#if p.item_id}em <a href="/inventario/{p.item_id}">{p.item_name}</a>{/if}.
+					{#if p.item_id}
+						Preparado: +{doses(p.units_added)} em <a href="/inventario/{p.item_id}">{p.item_name}</a>.
+					{:else}
+						Preparado (sem pôr no inventário).
+					{/if}
 				</p>
-				<form method="POST" action="?/prepUndo" use:enhance={submit(() => confirm('Desfazer? As doses adicionadas saem do inventário.'))}>
+				{#if prepIngredients.length}
+					<p class="muted small" style="margin:0">
+						Ingredientes descontados: {prepIngredients.map((g) => `${g.name} (${fmtNum(g.consumed)})`).join(', ')}
+					</p>
+				{/if}
+				<form method="POST" action="?/prepUndo" use:enhance={submit(() => confirm('Desfazer? As doses adicionadas saem do inventário e os ingredientes voltam ao stock.'))}>
 					<input type="hidden" name="w" value={data.start} />
 					<input type="hidden" name="id" value={p.id} />
 					<button class="btn block">↺ Desfazer</button>
@@ -441,34 +454,134 @@
 					<PrepEditor prep={p} users={data.users} week={data.start} />
 				{/key}
 
+				<section class="prep-part" aria-labelledby="prep-meals">
+					<h3 id="prep-meals">🍽️ Para quando?</h3>
+					{#if prepMeals.length}
+						<ul class="prep-list">
+							{#each prepMeals as m (m.id)}
+								<li style="--person: {m.person_color || 'var(--text-muted)'}">
+									<span class="dot" aria-hidden="true"></span>
+									<span class="grow">
+										{dayLabel(m.date)} · {label(m.slot)} · {m.person_name ?? everyone}
+										<span class="muted">· {doses(m.units)}</span>
+									</span>
+									<form method="POST" action="?/remove" use:enhance={submit()}>
+										<input type="hidden" name="w" value={data.start} />
+										<input type="hidden" name="id" value={m.id} />
+										<input type="hidden" name="prep" value={p.id} />
+										<button class="btn icon ghost small" aria-label="Tirar esta refeição">✕</button>
+									</form>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="muted small" style="margin:0">Ainda não está marcada para nenhuma refeição.</p>
+					{/if}
+					<details class="sub">
+						<summary>+ Marcar refeição</summary>
+						<form method="POST" action="?/prepMeal" class="stack" use:enhance={submit()}>
+							<input type="hidden" name="w" value={data.start} />
+							<input type="hidden" name="id" value={p.id} />
+							<div class="grid-2">
+								<label class="field">
+									<span>Dia</span>
+									<input type="date" name="date" value={p.date} min={p.date} required />
+								</label>
+								<label class="field">
+									<span>Refeição</span>
+									<select name="slot" value="jantar">
+										{#each slotsFor(morningSnack) as s (s.value)}<option value={s.value}>{s.label}</option>{/each}
+									</select>
+								</label>
+							</div>
+							<PersonPicker users={data.users} value={p.person_id} />
+							<label class="field">
+								<span>Doses</span>
+								<input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" autocomplete="off" name="units" value="1" required />
+							</label>
+							<button class="btn primary">Marcar</button>
+						</form>
+					</details>
+				</section>
+
+				<section class="prep-part" aria-labelledby="prep-ings">
+					<h3 id="prep-ings">🧊 Ingredientes do inventário</h3>
+					{#if prepIngredients.length}
+						<ul class="prep-list">
+							{#each prepIngredients as g (g.id)}
+								<li>
+									<span class="grow">
+										{g.name} <span class="muted">· {doses(g.units)} · {labelOf(LOCATIONS, g.location)}</span>
+										{#if g.free < 0}<span class="badge danger">falta</span>{/if}
+									</span>
+									<form method="POST" action="?/prepIngredientRemove" use:enhance={submit()}>
+										<input type="hidden" name="w" value={data.start} />
+										<input type="hidden" name="id" value={p.id} />
+										<input type="hidden" name="ingredient_id" value={g.id} />
+										<button class="btn icon ghost small" aria-label="Tirar {g.name}">✕</button>
+									</form>
+								</li>
+							{/each}
+						</ul>
+						<p class="muted small" style="margin:0">Ficam reservados e são descontados do stock ao confirmar "Preparado".</p>
+					{/if}
+					<details class="sub">
+						<summary>+ Usar do inventário</summary>
+						<form method="POST" action="?/prepIngredientAdd" class="stack" use:enhance={submit()}>
+							<input type="hidden" name="w" value={data.start} />
+							<input type="hidden" name="id" value={p.id} />
+							<label class="field">
+								<span>Item</span>
+								<select name="item_id" required>
+									<option value="" disabled selected>Escolhe…</option>
+									{#each LOCATIONS as l (l.value)}
+										{@const group = data.items.filter((i) => i.location === l.value)}
+										{#if group.length}
+											<optgroup label={l.label}>
+												{#each group as i (i.id)}
+													<option value={i.id}>{i.name} — {fmtNum(i.free)} {Math.abs(i.free) <= 1 ? 'livre' : 'livres'}</option>
+												{/each}
+											</optgroup>
+										{/if}
+									{/each}
+								</select>
+							</label>
+							<label class="field">
+								<span>Doses</span>
+								<input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" autocomplete="off" name="units" value="1" required />
+							</label>
+							<button class="btn primary">Usar</button>
+						</form>
+					</details>
+				</section>
+
 				<details class="sub done-box">
-					<summary>✓ Preparado — pôr no inventário</summary>
+					<summary>✓ Preparado — confirmar</summary>
 					<form method="POST" action="?/prepDone" class="stack" use:enhance={submit()}>
 						<input type="hidden" name="w" value={data.start} />
 						<input type="hidden" name="id" value={p.id} />
-						{#if sameName.length}
-							<label class="field">
-								<span>Onde guardar</span>
-								<select name="target" bind:value={prepTarget}>
-									{#each sameName as i (i.id)}
-										<option value={String(i.id)}>Juntar a "{i.name}" ({fmtNum(i.quantity)} em stock)</option>
-									{/each}
-									<option value="">Criar item novo</option>
-								</select>
-							</label>
-						{:else}
-							<input type="hidden" name="target" value="" />
+						<label class="field">
+							<span>No inventário</span>
+							<select name="target" bind:value={prepTarget}>
+								{#each sameName as i (i.id)}
+									<option value={String(i.id)}>Juntar a "{i.name}" ({fmtNum(i.quantity)} em stock)</option>
+								{/each}
+								<option value="">Criar item novo</option>
+								<option value="none">Não pôr no inventário</option>
+							</select>
+						</label>
+						{#if prepTarget !== 'none'}
+							<div class="grid-2">
+								<label class="field">
+									<span>Doses</span>
+									<input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" autocomplete="off" name="units" value={fmtNum(prepMeals.reduce((n, m) => n + m.units, 0) || 4)} required />
+								</label>
+								<label class="field">
+									<span>Preparado em</span>
+									<input type="date" name="stored_on" value={p.date} required />
+								</label>
+							</div>
 						{/if}
-						<div class="grid-2">
-							<label class="field">
-								<span>Doses</span>
-								<input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" autocomplete="off" name="units" value="4" required />
-							</label>
-							<label class="field">
-								<span>Preparado em</span>
-								<input type="date" name="stored_on" value={p.date} required />
-							</label>
-						</div>
 						{#if prepTarget === ''}
 							<label class="field">
 								<span>Nome</span>
@@ -497,8 +610,13 @@
 								<textarea name="item_notes" maxlength="1000" rows="2">{p.notes}</textarea>
 							</label>
 						{/if}
+						{#if prepIngredients.length}
+							<p class="muted small" style="margin:0">
+								Desconta do stock: {prepIngredients.map((g) => `${g.name} (${fmtNum(g.units)})`).join(', ')}.
+							</p>
+						{/if}
 						<div class="sheet-actions">
-							<button class="btn primary block">Pôr no inventário</button>
+							<button class="btn primary block">Confirmar preparação</button>
 						</div>
 					</form>
 				</details>
@@ -1006,6 +1124,12 @@
 		border-top-style: solid;
 	}
 
+	.entry.waiting {
+		background: var(--surface-2);
+		color: var(--text-muted);
+		filter: grayscale(0.8);
+	}
+
 	.entry.prep {
 		background: transparent;
 		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--person) 45%, var(--border));
@@ -1013,6 +1137,39 @@
 
 	.entry.prep.eaten {
 		background: color-mix(in srgb, var(--ok) 12%, var(--surface));
+	}
+
+	.prep-part {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.prep-part h3 {
+		font-size: 0.95rem;
+	}
+
+	.prep-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.prep-list li {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 2px 0 2px 10px;
+		border-left: 3px solid var(--border);
+		font-size: 0.92rem;
+	}
+
+	.prep-list .grow {
+		flex: 1;
+		min-width: 0;
 	}
 
 	.done-box summary {

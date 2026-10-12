@@ -53,6 +53,7 @@ export const actions = {
 	house: async ({ request }) => {
 		const form = await request.formData();
 		setSetting('morning_snack', form.get('morning_snack') === '1' ? '1' : '0');
+		setSetting('confirmations', form.get('confirmations') === '1' ? '1' : '0');
 		return { section: 'house', ok: 'Definições da casa guardadas.' };
 	},
 

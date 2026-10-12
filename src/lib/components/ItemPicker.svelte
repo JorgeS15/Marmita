@@ -14,14 +14,19 @@
 	let { items, preps = [], today, selected = $bindable(null) } = $props();
 
 	let q = $state('');
+	/** Filtro por local ("" = todos). */
+	let place = $state('');
 	const filtered = $derived.by(() => {
 		const needle = normalize(q);
-		const list = needle ? items.filter((i) => normalize(i.name).includes(needle)) : items;
+		const list = items.filter(
+			(i) => (!place || i.location === place) && (!needle || normalize(i.name).includes(needle))
+		);
 		// Mais antigo primeiro; os sem doses livres vão para o fim.
 		return [...list].sort((a, b) => Number(a.free <= 0) - Number(b.free <= 0));
 	});
 	const filteredPreps = $derived.by(() => {
 		const needle = normalize(q);
+		if (place) return [];
 		return needle ? preps.filter((p) => normalize(p.title).includes(needle)) : preps;
 	});
 </script>
@@ -30,21 +35,14 @@
 	<label class="visually-hidden" for="picker-q">Pesquisar no inventário</label>
 	<input id="picker-q" type="search" placeholder="Pesquisar no inventário…" bind:value={q} autocomplete="off" />
 
-	{#if filteredPreps.length}
-		<ul role="radiogroup" aria-label="Preparações por fazer" class="preps">
-			{#each filteredPreps as p (p.id)}
-				<li>
-					<label class="option">
-						<input type="radio" name="item_id" value={`p${p.id}`} bind:group={selected} />
-						<span class="text">
-							<span class="name">🍳 {p.title}</span>
-							<span class="muted small">Por preparar · {weekdayShort(p.date)}, {dayMonth(p.date)}</span>
-						</span>
-					</label>
-				</li>
-			{/each}
-		</ul>
-	{/if}
+	<div class="chips" role="group" aria-label="Local">
+		<button type="button" class="chip" aria-pressed={place === ''} onclick={() => (place = '')}>Todos</button>
+		{#each LOCATIONS as l (l.value)}
+			<button type="button" class="chip" aria-pressed={place === l.value} onclick={() => (place = place === l.value ? '' : l.value)}>
+				{l.label}
+			</button>
+		{/each}
+	</div>
 
 	{#if items.length === 0}
 		<p class="muted small">O inventário está vazio. Escreve abaixo o que vais comer.</p>
@@ -71,6 +69,23 @@
 			{/each}
 		</ul>
 	{/if}
+
+	{#if filteredPreps.length}
+		<p class="group-title">🍳 Por preparar</p>
+		<ul role="radiogroup" aria-label="Preparações por fazer" class="preps">
+			{#each filteredPreps as p (p.id)}
+				<li>
+					<label class="option">
+						<input type="radio" name="item_id" value={`p${p.id}`} bind:group={selected} />
+						<span class="text">
+							<span class="name">🍳 {p.title}</span>
+							<span class="muted small">Por preparar · {weekdayShort(p.date)}, {dayMonth(p.date)}</span>
+						</span>
+					</label>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 </div>
 
 <style>
@@ -82,6 +97,13 @@
 
 	ul.preps {
 		max-height: none;
+	}
+
+	.group-title {
+		margin: 6px 0 0;
+		font-size: 0.8rem;
+		font-weight: 700;
+		color: var(--text-muted);
 	}
 
 	ul {

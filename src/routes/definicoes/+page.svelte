@@ -57,6 +57,16 @@
 						<span class="muted small">Desligado, fica só o lanche da tarde, com o nome "Lanche".</span>
 					</span>
 				</label>
+				<label class="toggle">
+					<input type="checkbox" name="confirmations" value="1" checked={data.settings.confirmations} />
+					<span>
+						<strong>Confirmar o que foi comido</strong>
+						<span class="muted small">
+							Ligado, as refeições que já passaram ficam "Por confirmar" (Comido / Não comido). Desligado, contam
+							automaticamente como comidas e saem do stock quando passa a hora da refeição.
+						</span>
+					</span>
+				</label>
 				<button class="btn">Guardar</button>
 			</form>
 		</section>

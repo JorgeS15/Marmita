@@ -3,6 +3,22 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.7.0] - 2026-10-12
+
+### Added
+- **Filtros por local** (Congelador / Frigorífico / Despensa) no seletor de itens ao adicionar uma refeição.
+- **Preparações: "Para quando?"**: marca diretamente no painel da preparação as refeições em que vai ser comida (dia, refeição, pessoa e doses). Até a preparação ser confirmada, essas refeições aparecem a cinzento no calendário. Ao confirmar, as doses propostas são a soma dessas refeições.
+- **Preparações: ingredientes do inventário**: escolhe itens do inventário (ex.: couscous congelado) que a preparação vai usar.
+  - As doses ficam reservadas e contam como planeadas.
+  - Se estiverem no congelador, aparecem no aviso e na notificação "Tirar do congelador" na véspera.
+  - São descontadas ao confirmar a preparação, e "Desfazer" repõe-nas.
+- Ao confirmar uma preparação há a opção **"Não pôr no inventário"** (só desconta os ingredientes).
+- Definição da casa **"Confirmar o que foi comido"**. Desligada, deixa de haver "Por confirmar": as refeições contam automaticamente como comidas quando passa a hora e saem do stock.
+
+### Changed
+- **Novo item** no inventário com filtros ativos: o local e a categoria vêm já escolhidos.
+- O seletor de refeições mostra só preparações de hoje até ao dia da refeição, numa secção própria "🍳 Por preparar".
+
 ## [1.6.0] - 2026-10-11
 
 ### Added

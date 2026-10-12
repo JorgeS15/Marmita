@@ -83,12 +83,15 @@ export function listPending(now) {
 }
 
 /**
- * Refeições de hoje e amanhã que vêm do congelador e ainda não foram tiradas.
+ * O que tem de sair do congelador hoje ou amanhã: refeições planeadas e
+ * ingredientes de preparações por fazer.
  * @param {string} today
- * @returns {PlanEntry[]}
+ * @returns {{ kind: 'entry' | 'ingredient', id: number, date: string, slot: string | null,
+ *   title: string, units: number, person_color: string | null, prep_title: string | null }[]}
  */
 export function listToThaw(today) {
-	return /** @type {any} */ (
+	const tomorrow = addDays(today, 1);
+	const entries = /** @type {any[]} */ (
 		db()
 			.prepare(
 				`${SELECT}
@@ -96,8 +99,41 @@ export function listToThaw(today) {
 				   AND p.date BETWEEN ? AND ?
 				 ${ORDER}`
 			)
-			.all(today, addDays(today, 1))
-	);
+			.all(today, tomorrow)
+	).map((e) => ({ kind: 'entry', id: e.id, date: e.date, slot: e.slot, title: e.title, units: e.units,
+		person_color: e.person_color, prep_title: null }));
+	const ingredients = /** @type {any[]} */ (
+		db()
+			.prepare(
+				`SELECT g.id, pr.date, i.name AS title, g.units, u.color AS person_color, pr.title AS prep_title
+				 FROM prep_ingredients g
+				 JOIN preparations pr ON pr.id = g.prep_id
+				 JOIN items i ON i.id = g.item_id
+				 LEFT JOIN users u ON u.id = pr.person_id
+				 WHERE pr.status = 'planned' AND g.thawed = 0 AND i.location = 'congelador'
+				   AND pr.date BETWEEN ? AND ?
+				 ORDER BY pr.date, g.id`
+			)
+			.all(today, tomorrow)
+	).map((g) => ({ kind: 'ingredient', slot: null, ...g }));
+	return [...entries, ...ingredients].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** @param {number} id @param {boolean} thawed */
+export function setIngredientThawed(id, thawed) {
+	return db().prepare('UPDATE prep_ingredients SET thawed = ? WHERE id = ?').run(thawed ? 1 : 0, id).changes > 0;
+}
+
+/**
+ * Com as confirmações desligadas: as refeições que já passaram contam como comidas.
+ * @param {{ date: string, hour: number }} now
+ */
+export function autoConsume(now) {
+	let n = 0;
+	for (const e of listPending(now)) {
+		if (setStatus(e.id, 'eaten', null)) n++;
+	}
+	return n;
 }
 
 /** Marca (ou desmarca) a refeição como já tirada do congelador. @param {number} id @param {boolean} thawed @param {number} userId */
@@ -214,7 +250,7 @@ export function moveEntry(id, date, slot, userId) {
  *  - sair de "eaten" repõe as doses.
  * @param {number} id
  * @param {'planned' | 'eaten' | 'skipped'} status
- * @param {number} userId
+ * @param {number | null} userId
  */
 export function setStatus(id, status, userId) {
 	return transaction(() => {
