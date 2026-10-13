@@ -219,8 +219,9 @@ export const actions = {
 	prepAdd: ({ request, locals }) =>
 		guard(async () => {
 			const form = await request.formData();
-			addPreparation(parsePrep(form), locals.user.id);
-			back(form);
+			const id = addPreparation(parsePrep(form), locals.user.id);
+			// Abre logo a preparação criada, com "Para quando?" e os ingredientes à mão.
+			backToPrep(form, id);
 		}),
 
 	prepUpdate: ({ request, locals }) =>
