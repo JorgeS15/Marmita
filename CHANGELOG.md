@@ -3,6 +3,11 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.9.2] - 2026-10-13
+
+### Changed
+- Ao agendar uma preparação, o painel dela abre logo a seguir com **"Para quando?"**, os **ingredientes do inventário** e o resto das opções. Antes o painel fechava e era preciso voltar a abri-la.
+
 ## [1.9.1] - 2026-10-12
 
 ### Changed

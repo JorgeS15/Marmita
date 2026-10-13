@@ -179,7 +179,16 @@ describe.skipIf(!existsSync(BUILD))('servidor (build)', () => {
 		expect(q('SELECT quantity FROM items WHERE id = ?', id)[0].quantity).toBe(4);
 	});
 
-	test('erros de validação respondem 400 e não 500', async () => {
+	test('agendar uma preparação abre-a logo no painel completo', async () => {
+		const r = await action('/?/prepAdd', { w: '2026-10-11', date: '2026-10-15', title: 'Filetes na airfryer', person_id: '', notes: '' });
+		const [prep] = q(`SELECT id FROM preparations WHERE title = 'Filetes na airfryer'`);
+		expect(r).toMatchObject({ type: 'redirect', location: `/?w=2026-10-11&preparacao=${prep.id}` });
+		const html = await (await req(r.location ?? '')).text();
+		expect(html).toContain('Para quando?');
+		expect(html).toContain('Ingredientes do inventário');
+	});
+
+		test('erros de validação respondem 400 e não 500', async () => {
 		const cases = [
 			['/?/add', { date: 'ontem', slot: 'jantar', title: 'x' }],
 			['/?/add', { date: '2026-10-14', slot: 'ceia', title: 'x' }],
