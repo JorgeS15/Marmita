@@ -3,6 +3,11 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.10.0] - 2026-10-14
+
+### Added
+- **Arrastar no computador**: as refeições podem ser arrastadas para outra refeição ou outro dia da semana, e as preparações para outro dia. Com **Ctrl** (ou ⌘/Alt) carregado ao largar, é feita uma cópia em vez de mover. No telemóvel continua a ser pelo painel (Mover / Duplicar).
+
 ## [1.9.2] - 2026-10-13
 
 ### Changed

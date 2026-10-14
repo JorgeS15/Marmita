@@ -1,6 +1,6 @@
 <script>
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
 	import BottomSheet from '$lib/components/BottomSheet.svelte';
@@ -185,6 +185,97 @@
 		return '';
 	}
 
+	// ——— Arrastar no computador (mover; com Ctrl/⌘/Alt copia) ———
+	/** Só com rato: no telemóvel o toque longo serve para outras coisas. */
+	let canDrag = $state(false);
+	$effect(() => {
+		const mq = window.matchMedia('(pointer: fine)');
+		canDrag = mq.matches;
+		const on = () => (canDrag = mq.matches);
+		mq.addEventListener('change', on);
+		return () => mq.removeEventListener('change', on);
+	});
+
+	/** @type {{ kind: 'entry' | 'prep', id: number, date: string, slot: string | null } | null} */
+	let dragging = $state(null);
+	/** Alvo debaixo do rato: "data.slot" ou "data.preps". */
+	let dropKey = $state('');
+	let dragBusy = $state(false);
+
+	/** @param {DragEvent} ev @param {'entry' | 'prep'} kind @param {number} id @param {string} date @param {string | null} slot */
+	function dragStart(ev, kind, id, date, slot) {
+		dragging = { kind, id, date, slot };
+		if (ev.dataTransfer) {
+			ev.dataTransfer.effectAllowed = 'copyMove';
+			ev.dataTransfer.setData('text/plain', `${kind}:${id}`);
+		}
+	}
+
+	function dragEnd() {
+		dragging = null;
+		dropKey = '';
+	}
+
+	/** @param {DragEvent} ev */
+	const wantsCopy = (ev) => ev.ctrlKey || ev.metaKey || ev.altKey;
+
+	/** @param {DragEvent} ev @param {string} date @param {string | null} slot null = preparações */
+	function dragOver(ev, date, slot) {
+		if (!dragging || (dragging.kind === 'prep') !== (slot === null)) return;
+		ev.preventDefault();
+		if (ev.dataTransfer) ev.dataTransfer.dropEffect = wantsCopy(ev) ? 'copy' : 'move';
+		dropKey = `${date}.${slot ?? 'preps'}`;
+	}
+
+	/** @param {DragEvent} ev @param {string} date @param {string | null} slot */
+	async function drop(ev, date, slot) {
+		const d = dragging;
+		dragEnd();
+		if (!d || (d.kind === 'prep') !== (slot === null)) return;
+		ev.preventDefault();
+		const copy = wantsCopy(ev);
+		if (!copy && d.date === date && d.slot === slot) return;
+		const body = new FormData();
+		body.set('w', data.start);
+		body.set('id', String(d.id));
+		let action;
+		if (d.kind === 'entry') {
+			body.set('slot', /** @type {string} */ (slot));
+			if (copy) {
+				action = 'duplicate';
+				body.set('dates', date);
+			} else {
+				action = 'move';
+				body.set('date', date);
+			}
+		} else if (copy) {
+			action = 'prepDuplicate';
+			body.set('dates', date);
+		} else {
+			action = 'prepMove';
+			body.set('date', date);
+		}
+		dragBusy = true;
+		try {
+			const res = await fetch(`?/${action}`, { method: 'POST', body, headers: { 'x-sveltekit-action': 'true' } });
+			const result = await res.json().catch(() => ({}));
+			if (result.type === 'failure' || result.type === 'error') {
+				let msg = result.error?.message ?? 'Não foi possível mover.';
+				try {
+					msg = JSON.parse(result.data).at(-1);
+				} catch {
+					/* mensagem genérica */
+				}
+				alert(msg);
+			}
+		} catch {
+			alert('Sem ligação: não foi possível mover.');
+		} finally {
+			await invalidateAll();
+			dragBusy = false;
+		}
+	}
+
 	/** @param {Entry} e */
 	const statusLabel = (e) =>
 		e.status === 'eaten' ? 'consumida' : e.status === 'skipped' ? 'não consumida' : 'planeada';
@@ -276,7 +367,7 @@
 		</button>
 	{/if}
 
-	<div class="week" class:hide-past={pastDays > 0 && !showPast} style="--both: {bothStripe}; --rows: {slots.length + 2}">
+	<div class="week" aria-busy={dragBusy} class:hide-past={pastDays > 0 && !showPast} style="--both: {bothStripe}; --rows: {slots.length + 2}">
 		{#each days as day (day)}
 			{@const isToday = day === data.today}
 			{@const preps = prepsByDay[day] ?? []}
@@ -288,7 +379,16 @@
 				</h2>
 				{#each slots as slot (slot.value)}
 					{@const list = bySlot[`${day}.${slot.value}`] ?? []}
-					<div class="slot" class:minor={slot.minor}>
+					<div
+						class="slot"
+						class:minor={slot.minor}
+						class:drop-over={dropKey === `${day}.${slot.value}`}
+						role="group"
+						aria-label="{slot.label} de {weekdayName(day)}"
+						ondragover={(ev) => dragOver(ev, day, slot.value)}
+						ondragleave={() => dropKey === `${day}.${slot.value}` && (dropKey = '')}
+						ondrop={(ev) => drop(ev, day, slot.value)}
+					>
 						<div class="slot-head">
 							<h3 class="slot-name">
 								<span class="long">{slot.label}</span><span class="short" aria-hidden="true">{slot.short}</span>
@@ -311,9 +411,14 @@
 											class:everyone={e.person_id == null}
 											class:waiting={e.prep_id != null && e.prep_status === 'planned'}
 											class:over={e.status === 'planned' && e.item_id != null && (e.item_free ?? 0) < 0}
+											class:dragging={dragging?.kind === 'entry' && dragging.id === e.id}
 											style={personStyle(e)}
 											href={entryHref(e.id)}
 											data-sveltekit-noscroll
+											draggable={canDrag}
+											title={canDrag ? 'Arrasta para outro dia ou refeição (com Ctrl copia)' : undefined}
+											ondragstart={(ev) => dragStart(ev, 'entry', e.id, e.date, e.slot)}
+											ondragend={dragEnd}
 										>
 											<span class="icon" aria-hidden="true">{statusIcon(e)}</span>
 											<span class="title">{e.title}</span>
@@ -325,7 +430,15 @@
 						{/if}
 					</div>
 				{/each}
-				<div class="slot preps">
+				<div
+					class="slot preps"
+					class:drop-over={dropKey === `${day}.preps`}
+					role="group"
+					aria-label="Preparações de {weekdayName(day)}"
+					ondragover={(ev) => dragOver(ev, day, null)}
+					ondragleave={() => dropKey === `${day}.preps` && (dropKey = '')}
+					ondrop={(ev) => drop(ev, day, null)}
+				>
 					<div class="slot-head">
 						<h3 class="slot-name">
 							<span class="long">Preparações</span><span class="short" aria-hidden="true">Preparar</span>
@@ -346,9 +459,14 @@
 									<a
 										class="entry prep {p.status === 'done' ? 'eaten' : ''}"
 										class:everyone={p.person_id == null}
+										class:dragging={dragging?.kind === 'prep' && dragging.id === p.id}
 										style={personStyle(p)}
 										href={prepHref(p.id)}
 										data-sveltekit-noscroll
+										draggable={canDrag}
+										title={canDrag ? 'Arrasta para outro dia (com Ctrl copia)' : undefined}
+										ondragstart={(ev) => dragStart(ev, 'prep', p.id, p.date, null)}
+										ondragend={dragEnd}
 									>
 										<span class="icon" aria-hidden="true">{p.status === 'done' ? '✓' : '🍳'}</span>
 										<span class="title">{p.title}</span>
@@ -1018,6 +1136,17 @@
 		gap: 6px;
 		padding-top: 6px;
 		border-top: 1px dashed var(--border);
+	}
+
+	.slot.drop-over {
+		outline: 2px dashed var(--accent);
+		outline-offset: 2px;
+		border-radius: var(--radius-sm);
+		background: color-mix(in srgb, var(--accent) 8%, transparent);
+	}
+
+	.entry.dragging {
+		opacity: 0.4;
 	}
 
 	.slot-head {

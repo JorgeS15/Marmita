@@ -188,6 +188,16 @@ describe.skipIf(!existsSync(BUILD))('servidor (build)', () => {
 		expect(html).toContain('Ingredientes do inventário');
 	});
 
+		test('mover uma preparação para outro dia (arrastar)', async () => {
+		await action('/?/prepAdd', { w: '2026-10-11', date: '2026-10-12', title: 'Para arrastar', person_id: '', notes: '' });
+		const [prep] = q(`SELECT id FROM preparations WHERE title = 'Para arrastar'`);
+		const r = await action('/?/prepMove', { w: '2026-10-11', id: String(prep.id), date: '2026-10-16' });
+		expect(r.type).toBe('redirect');
+		expect(q('SELECT date FROM preparations WHERE id = ?', prep.id)[0].date).toBe('2026-10-16');
+		expect((await action('/?/prepMove', { w: '2026-10-11', id: '999999', date: '2026-10-16' })).type).toBe('error');
+		expect((await action('/?/prepMove', { w: '2026-10-11', id: String(prep.id), date: 'amanhã' })).type).toBe('failure');
+	});
+
 		test('erros de validação respondem 400 e não 500', async () => {
 		const cases = [
 			['/?/add', { date: 'ontem', slot: 'jantar', title: 'x' }],
