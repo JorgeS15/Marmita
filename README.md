@@ -7,6 +7,7 @@ Self-hosted em Docker, usado como PWA e partilhado pelas pessoas da casa.
 - **Semana**: de domingo a sábado, com pequeno-almoço, lanche da manhã, almoço, lanche da tarde e jantar. Cada refeição pode ter várias entradas, vindas do inventário ou em texto livre, e é atribuída a uma pessoa da casa (ou a ambas). Cada pessoa tem a sua cor. Cada dia tem também **Preparações** (o que vai ser cozinhado); ao confirmar, as doses entram no inventário.
 - **Ideias**: bloco de notas partilhado para receitas e ideias, que se podem copiar ou mover para o calendário (como refeição ou preparação).
 - **Consumo**: "Consumido" desconta o stock e "Não consumido" liberta a dose. Os dois botões ficam sempre visíveis: o escolhido fica marcado e tocar-lhe outra vez desfaz. As refeições que já passaram aparecem em **Por confirmar**.
+- **Arrastar** (computador): refeições e preparações arrastam-se para outro dia ou refeição; com Ctrl copia.
 - **Contas**: utilizador e palavra-passe. Todos veem e editam os mesmos dados.
 - **PWA** instalável (exige HTTPS), com tema claro e escuro, em português de Portugal.
 

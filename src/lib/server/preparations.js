@@ -99,6 +99,15 @@ export function duplicatePreparation(id, dates, userId) {
 	});
 }
 
+/** Muda só o dia da preparação (arrastar no calendário). @param {number} id @param {string} date @param {number} userId */
+export function movePreparation(id, date, userId) {
+	return (
+		db()
+			.prepare(`UPDATE preparations SET date = ?, updated_by = ?, updated_at = datetime('now') WHERE id = ?`)
+			.run(date, userId, id).changes > 0
+	);
+}
+
 /** @param {number} id */
 export function removePreparation(id) {
 	return db().prepare('DELETE FROM preparations WHERE id = ?').run(id).changes > 0;

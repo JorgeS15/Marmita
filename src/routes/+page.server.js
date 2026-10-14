@@ -9,6 +9,7 @@ import {
 	listPrepMeals,
 	removeIngredient,
 	duplicatePreparation,
+	movePreparation,
 	listOpenPreparations,
 	listWeekPreparations,
 	removePreparation,
@@ -177,6 +178,14 @@ export const actions = {
 			const form = await request.formData();
 			const slot = oneOf(form, 'slot', SLOT_VALUES, { label: 'Refeição' });
 			ensure(duplicateEntry(id(form), targetDates(form), slot, locals.user.id) > 0);
+			back(form);
+		}),
+
+	prepMove: ({ request, locals }) =>
+		guard(async () => {
+			const form = await request.formData();
+			const d = /** @type {string} */ (date(form, 'date', { required: true, label: 'Data' }));
+			ensure(movePreparation(id(form), d, locals.user.id), 'Preparação não encontrada.');
 			back(form);
 		}),
 
