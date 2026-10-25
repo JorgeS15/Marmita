@@ -23,11 +23,25 @@
 
 	const filtered = $derived(data.items.filter(matches));
 
+	/** Filtros ativos, para voltar à lista como estava depois de abrir/guardar um item. */
+	const listQuery = $derived.by(() => {
+		const params = new URLSearchParams();
+		if (q) params.set('q', q);
+		if (location) params.set('local', location);
+		if (category) params.set('categoria', category);
+		if (data.showArchived) params.set('arquivados', '');
+		return params.toString();
+	});
+	const voltar = $derived(listQuery ? `voltar=${encodeURIComponent(listQuery)}` : '');
+	/** @param {number} id */
+	const itemHref = (id) => `/inventario/${id}${voltar ? `?${voltar}` : ''}`;
+
 	/** O novo item herda os filtros ativos (local e categoria). */
 	const newHref = $derived.by(() => {
 		const params = new URLSearchParams();
 		if (location) params.set('local', location);
 		if (category) params.set('categoria', category);
+		if (listQuery) params.set('voltar', listQuery);
 		const qs = params.toString();
 		return `/inventario/novo${qs ? `?${qs}` : ''}`;
 	});
@@ -60,7 +74,7 @@
 {#snippet card(/** @type {(typeof data.items)[number]} */ item, /** @type {boolean} */ isSoldOut)}
 	{@const flags = itemFlags(item, data.today)}
 	<li class="card item">
-		<a class="main" href="/inventario/{item.id}">
+		<a class="main" href={itemHref(item.id)}>
 			<span class="name">{item.name}</span>
 			<span class="meta muted small">
 				{labelOf(CATEGORIES, item.category)} · {labelOf(LOCATIONS, item.location)}
@@ -165,7 +179,7 @@
 				<ul class="list soldout">
 					{#each data.archived as item (item.id)}
 						<li class="card item">
-							<a class="main" href="/inventario/{item.id}"><span class="name">{item.name}</span></a>
+							<a class="main" href={itemHref(item.id)}><span class="name">{item.name}</span></a>
 							<form method="POST" action="?/unarchive" use:enhance={quiet}>
 								<input type="hidden" name="id" value={item.id} />
 								<button class="btn small">Repor</button>

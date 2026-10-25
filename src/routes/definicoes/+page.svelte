@@ -51,6 +51,13 @@
 			{#if msg('house')?.ok}<p class="alert ok" role="status">{msg('house')?.ok}</p>{/if}
 			<form method="POST" action="?/house" use:enhance={() => async ({ update }) => update({ reset: false })} class="stack">
 				<label class="toggle">
+					<input type="checkbox" name="week_monday" value="1" checked={data.settings.weekStartsMonday} />
+					<span>
+						<strong>Semana começa à segunda-feira</strong>
+						<span class="muted small">Desligado, a semana vai de domingo a sábado.</span>
+					</span>
+				</label>
+				<label class="toggle">
 					<input type="checkbox" name="morning_snack" value="1" checked={data.settings.morningSnack} />
 					<span>
 						<strong>Lanche da manhã</strong>

@@ -3,6 +3,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import PersonPicker from './PersonPicker.svelte';
 	import { weekStartOf } from '$lib/dates.js';
+	import { page } from '$app/state';
 
 	/**
 	 * Edição direta de uma preparação: grava sozinha ao mudar e ao fechar o painel.
@@ -65,9 +66,10 @@
 			}
 			status = 'saved';
 			const date = String(data.get('date'));
-			if (!keepalive && weekStartOf(date) !== week) {
+			const monday = !!page.data.settings?.weekStartsMonday;
+			if (!keepalive && weekStartOf(date, monday) !== week) {
 				// Mudou de semana: acompanha a preparação.
-				await goto(`/?w=${weekStartOf(date)}&preparacao=${prep.id}`, { replaceState: true, noScroll: true });
+				await goto(`/?w=${weekStartOf(date, monday)}&preparacao=${prep.id}`, { replaceState: true, noScroll: true });
 			}
 		} catch {
 			status = 'error';

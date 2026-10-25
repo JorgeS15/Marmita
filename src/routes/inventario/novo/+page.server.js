@@ -4,6 +4,7 @@ import { parseItem } from '$lib/server/item-form.js';
 import { guard } from '$lib/server/forms.js';
 import { today } from '$lib/dates.js';
 import { CATEGORIES, LOCATIONS } from '$lib/constants.js';
+import { inventoryHref } from '$lib/inventory.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export function load({ url }) {
@@ -11,6 +12,7 @@ export function load({ url }) {
 	const categoria = url.searchParams.get('categoria');
 	return {
 		today: today(),
+		back: inventoryHref(url.searchParams.get('voltar')),
 		defaults: {
 			location: LOCATIONS.some((l) => l.value === local) ? local : 'congelador',
 			category: CATEGORIES.some((c) => c.value === categoria) ? categoria : 'outro'
@@ -24,6 +26,6 @@ export const actions = {
 		guard(async () => {
 			const form = await request.formData();
 			createItem(parseItem(form), locals.user.id);
-			redirect(303, '/inventario');
+			redirect(303, inventoryHref(form.get('voltar')));
 		})
 };

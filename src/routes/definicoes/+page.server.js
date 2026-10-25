@@ -54,6 +54,7 @@ export const actions = {
 	house: async ({ request }) => {
 		const form = await request.formData();
 		setSetting('morning_snack', form.get('morning_snack') === '1' ? '1' : '0');
+		setSetting('week_monday', form.get('week_monday') === '1' ? '1' : '0');
 		const confirmations = form.get('confirmations') === '1';
 		// Ao desligar, só as refeições a partir de hoje passam a contar como comidas sozinhas.
 		if (!confirmations && getSettings().confirmations) setSetting('auto_consume_from', nowParts().date);

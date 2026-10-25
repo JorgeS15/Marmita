@@ -30,7 +30,7 @@ export function load({ params }) {
 	return {
 		idea,
 		today,
-		start: weekStartOf(today),
+		start: weekStartOf(today, getSettings().weekStartsMonday),
 		slots: slotsFor(getSettings().morningSnack),
 		users: listUsers().map((u) => ({ id: u.id, display_name: u.display_name, color: u.color }))
 	};
@@ -77,7 +77,7 @@ export const actions = {
 				}
 				if (form.get('move')) {
 					deleteIdea(ideaIdNum);
-					redirect(303, `/?w=${weekStartOf(dates[0])}`);
+					redirect(303, `/?w=${weekStartOf(dates[0], getSettings().weekStartsMonday)}`);
 				}
 				const what = kind === 'meal' ? 'refeição' : 'preparação';
 				return { ok: dates.length === 1 ? `Adicionada como ${what}.` : `Adicionada como ${what} em ${dates.length} dias.` };

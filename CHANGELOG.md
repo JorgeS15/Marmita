@@ -3,6 +3,14 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.13.0] - 2026-10-25
+
+### Added
+- Definição da casa **"Semana começa à segunda-feira"** (Definições → Refeições da casa). Ligada, a semana vai de segunda a domingo no calendário, no seletor de dias; desligada, continua de domingo a sábado.
+
+### Fixed
+- Inventário: ao abrir um item com filtros ativos (ex.: Congelador) e guardar, arquivar ou voltar, a lista abre com os mesmos filtros. O mesmo ao adicionar um item novo a partir da lista filtrada.
+
 ## [1.12.0] - 2026-10-25
 
 ### Added
