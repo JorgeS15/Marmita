@@ -27,9 +27,39 @@
 
 	const days = $derived(weekDays(data.start));
 	const thisWeek = $derived(weekStartOf(data.today));
-	/** Dias desta semana que já passaram (no telemóvel ficam escondidos até pedir). */
-	const pastDays = $derived(data.start === thisWeek ? days.filter((d) => d < data.today).length : 0);
-	let showPast = $state(false);
+
+	// ——— Telemóvel: dias lado a lado, a deslizar ———
+	/** @type {HTMLDivElement | undefined} */
+	let weekEl = $state();
+	/** Dia visível no telemóvel (para marcar no seletor de dias). */
+	let visibleDay = $state('');
+	const isCarousel = () => !!weekEl && getComputedStyle(weekEl).overflowX === 'auto';
+
+	/** @param {string} day @param {ScrollBehavior} [behavior] */
+	function showDay(day, behavior = 'smooth') {
+		const el = weekEl?.querySelector(`[data-day="${day}"]`);
+		if (!weekEl || !(el instanceof HTMLElement) || !isCarousel()) return;
+		weekEl.scrollTo({ left: el.offsetLeft - weekEl.offsetLeft, behavior });
+		visibleDay = day;
+	}
+
+	function onWeekScroll() {
+		if (!weekEl || !isCarousel()) return;
+		const cards = /** @type {HTMLElement[]} */ ([...weekEl.querySelectorAll('[data-day]')]);
+		const x = weekEl.scrollLeft;
+		let best = cards[0];
+		for (const c of cards) if (Math.abs(c.offsetLeft - weekEl.offsetLeft - x) < Math.abs(best.offsetLeft - weekEl.offsetLeft - x)) best = c;
+		if (best) visibleDay = best.dataset.day ?? '';
+	}
+
+	// Ao abrir (ou mudar de semana), começa no dia de hoje — ou no domingo, noutras semanas.
+	// Só depende da semana: a atualização automática dos dados não mexe no deslizar.
+	const weekStart = $derived(data.start); // texto: não muda com a atualização automática
+	$effect(() => {
+		const start = weekStart;
+		if (!weekEl) return;
+		untrack(() => showDay(start === thisWeek ? data.today : start, 'instant'));
+	});
 	const weekHref = $derived(`/?w=${data.start}`);
 	const everyone = $derived(data.users.length === 2 ? 'Ambos' : 'Todos');
 	const morningSnack = $derived(data.settings.morningSnack);
@@ -361,17 +391,32 @@
 		</details>
 	{/if}
 
-	{#if pastDays > 0}
-		<button type="button" class="btn small ghost past-toggle" onclick={() => (showPast = !showPast)} aria-expanded={showPast}>
-			{showPast ? 'Esconder dias anteriores' : `Mostrar dias anteriores (${pastDays})`}
-		</button>
-	{/if}
+	<nav class="day-picker" aria-label="Dias da semana">
+		{#each days as day (day)}
+			<button
+				type="button"
+				class:today={day === data.today}
+				class:past={day < data.today}
+				aria-current={visibleDay === day ? 'true' : undefined}
+				onclick={() => showDay(day)}
+			>
+				<span class="wd">{weekdayShort(day)}</span>
+				<span class="dn">{Number(day.slice(8))}</span>
+			</button>
+		{/each}
+	</nav>
 
-	<div class="week" aria-busy={dragBusy} class:hide-past={pastDays > 0 && !showPast} style="--both: {bothStripe}; --rows: {slots.length + 2}">
+	<div
+		class="week"
+		bind:this={weekEl}
+		onscroll={onWeekScroll}
+		aria-busy={dragBusy}
+		style="--both: {bothStripe}; --rows: {slots.length + 2}"
+	>
 		{#each days as day (day)}
 			{@const isToday = day === data.today}
 			{@const preps = prepsByDay[day] ?? []}
-			<section class="day card" class:today={isToday} class:past={day < data.today} aria-labelledby="d-{day}">
+			<section class="day card" class:today={isToday} class:past={day < data.today} aria-labelledby="d-{day}" data-day={day}>
 				<h2 id="d-{day}">
 					<span class="wd">{weekdayTitle(day)}</span>
 					<span class="dm">{dayMonth(day)}</span>
@@ -979,25 +1024,61 @@
 		opacity: 0.55;
 	}
 
-	/* ——— Dias anteriores (só no telemóvel) ——— */
-	.past-toggle {
-		width: 100%;
-		margin-bottom: 8px;
-		border: 1px dashed var(--border);
+	/* ——— Seletor de dias (só no telemóvel) ——— */
+	.day-picker {
+		display: grid;
+		grid-template-columns: repeat(7, minmax(0, 1fr));
+		gap: 4px;
+		margin-bottom: 10px;
+	}
+
+	.day-picker button {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1px;
+		min-height: 44px;
+		padding: 4px 0;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		background: var(--surface);
+		color: var(--text);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.day-picker .wd {
+		font-size: 0.7rem;
+		text-transform: capitalize;
 		color: var(--text-muted);
 	}
 
-	.week.hide-past .day.past {
-		display: none;
+	.day-picker .dn {
+		font-weight: 700;
+	}
+
+	.day-picker button.past {
+		opacity: 0.6;
+	}
+
+	.day-picker button.today {
+		border-color: var(--accent);
+	}
+
+	.day-picker button[aria-current='true'] {
+		background: var(--accent);
+		border-color: var(--accent);
+		color: var(--accent-contrast);
+		opacity: 1;
+	}
+
+	.day-picker button[aria-current='true'] .wd {
+		color: inherit;
 	}
 
 	@media (min-width: 960px) {
-		.past-toggle {
+		.day-picker {
 			display: none;
-		}
-
-		.week.hide-past .day.past {
-			display: grid;
 		}
 	}
 
@@ -1092,10 +1173,29 @@
 	}
 
 	/* ——— Semana ——— */
+	/* Telemóvel: um dia de cada vez, a deslizar para os lados (espreita-se o seguinte). */
 	.week {
 		display: flex;
-		flex-direction: column;
-		gap: 12px;
+		flex-direction: row;
+		align-items: flex-start;
+		gap: 10px;
+		overflow-x: auto;
+		scroll-snap-type: x mandatory;
+		overscroll-behavior-x: contain;
+		scrollbar-width: none;
+		margin: 0 -16px;
+		padding: 0 16px 4px;
+		scroll-padding: 0 16px;
+	}
+
+	.week::-webkit-scrollbar {
+		display: none;
+	}
+
+	.week > .day {
+		flex: 0 0 calc(100% - 28px);
+		min-width: 0;
+		scroll-snap-align: start;
 	}
 
 	.day {
@@ -1430,6 +1530,10 @@
 	@media (min-width: 960px) {
 		.week {
 			display: grid;
+			overflow: visible;
+			scroll-snap-type: none;
+			margin: 0;
+			padding: 0;
 			grid-template-columns: repeat(7, minmax(0, 1fr));
 			grid-template-rows: repeat(var(--rows), auto);
 			gap: 8px;
