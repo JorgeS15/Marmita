@@ -1,6 +1,6 @@
 {
   "name": "marmita",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "description": "Planeador de refeições caseiro: inventário e calendário semanal",
   "private": true,
   "type": "module",

@@ -26,7 +26,7 @@
 	/** @typedef {(typeof data.entries)[number]} Entry */
 
 	const days = $derived(weekDays(data.start));
-	const thisWeek = $derived(weekStartOf(data.today));
+	const thisWeek = $derived(weekStartOf(data.today, data.settings.weekStartsMonday));
 
 	// ——— Telemóvel: dias lado a lado, a deslizar ———
 	/** @type {HTMLDivElement | undefined} */
@@ -52,7 +52,7 @@
 		if (best) visibleDay = best.dataset.day ?? '';
 	}
 
-	// Ao abrir (ou mudar de semana), começa no dia de hoje — ou no domingo, noutras semanas.
+	// Ao abrir (ou mudar de semana), começa no dia de hoje — ou no primeiro dia, noutras semanas.
 	// Só depende da semana: a atualização automática dos dados não mexe no deslizar.
 	const weekStart = $derived(data.start); // texto: não muda com a atualização automática
 	$effect(() => {

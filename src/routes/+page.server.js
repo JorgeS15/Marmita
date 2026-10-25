@@ -26,9 +26,12 @@ import { addDays, isISODate, nowParts, weekStartOf } from '$lib/dates.js';
 
 const STATUS_VALUES = /** @type {const} */ (['planned', 'eaten', 'skipped']);
 
+/** A semana começa à segunda-feira? (definição da casa) */
+const monday = () => getSettings().weekStartsMonday;
+
 /** @param {string | null} w @param {string} today */
 function resolveWeekStart(w, today) {
-	return weekStartOf(w && isISODate(w) ? w : today);
+	return weekStartOf(w && isISODate(w) ? w : today, monday());
 }
 
 /**
@@ -80,7 +83,7 @@ function back(form) {
 	const prep = Number(form.get('prep'));
 	if (prep > 0) backToPrep(form, prep);
 	const w = form.get('w');
-	const start = typeof w === 'string' && isISODate(w) ? weekStartOf(w) : null;
+	const start = typeof w === 'string' && isISODate(w) ? weekStartOf(w, monday()) : null;
 	redirect(303, start ? `/?w=${start}` : '/');
 }
 
@@ -105,7 +108,7 @@ function parsePrep(form) {
 /** Volta ao painel da preparação (sem o fechar). @param {FormData} form @param {number} prepId */
 function backToPrep(form, prepId) {
 	const w = form.get('w');
-	const start = typeof w === 'string' && isISODate(w) ? weekStartOf(w) : null;
+	const start = typeof w === 'string' && isISODate(w) ? weekStartOf(w, monday()) : null;
 	redirect(303, `/?${start ? `w=${start}&` : ''}preparacao=${prepId}`);
 }
 
@@ -172,7 +175,7 @@ export const actions = {
 			const slot = oneOf(form, 'slot', SLOT_VALUES, { label: 'Refeição' });
 			ensure(moveEntry(id(form), d, slot, locals.user.id));
 			// Depois de mover, mostra a semana de destino.
-			redirect(303, `/?w=${weekStartOf(d)}`);
+			redirect(303, `/?w=${weekStartOf(d, monday())}`);
 		}),
 
 	duplicate: ({ request, locals }) =>
@@ -240,7 +243,7 @@ export const actions = {
 			const form = await request.formData();
 			const d = parsePrep(form);
 			ensure(updatePreparation(id(form), d, locals.user.id), 'Preparação não encontrada.');
-			redirect(303, `/?w=${weekStartOf(d.date)}`);
+			redirect(303, `/?w=${weekStartOf(d.date, monday())}`);
 		}),
 
 	prepRemove: ({ request }) =>

@@ -236,6 +236,27 @@ describe.skipIf(!existsSync(BUILD))('servidor (build)', () => {
 		expect((await action(`/inventario/${fridge}?/move`, { units: '9', location: 'congelador' })).type).toBe('failure');
 	});
 
+		test('semana à segunda-feira (definição da casa)', async () => {
+		await req('/definicoes?/house', { week_monday: '1', morning_snack: '1', confirmations: '1' });
+		expect(q(`SELECT value FROM settings WHERE key = 'week_monday'`)[0].value).toBe('1');
+		const html = await (await req('/?w=2026-10-15')).text();
+		expect(html).toContain('12–18 out');
+		expect(html).toContain('id="d-2026-10-18"');
+		expect(html).not.toContain('id="d-2026-10-11"');
+		await req('/definicoes?/house', { morning_snack: '1', confirmations: '1' });
+		expect(await (await req('/?w=2026-10-15')).text()).toContain('11–17 out');
+	});
+
+	test('guardar um item volta ao inventário com os filtros', async () => {
+		const [it] = q(`SELECT id FROM items ORDER BY id LIMIT 1`);
+		const page = await (await req(`/inventario/${it.id}?voltar=${encodeURIComponent('local=congelador')}`)).text();
+		expect(page).toContain('href="/inventario?local=congelador"');
+		const r = await req(`/inventario/${it.id}?/save`, { name: 'Com filtro', category: 'outro', location: 'congelador', quantity: '1', quantity_original: '1', stored_on: '', best_before: '', notes: '', voltar: 'local=congelador' });
+		expect(r.headers.get('location')).toBe('/inventario?local=congelador');
+		const n = await req('/inventario/novo', { name: 'Novo filtrado', category: 'outro', location: 'frigorifico', quantity: '1', stored_on: '', best_before: '', notes: '', voltar: 'local=frigorifico&q=x' });
+		expect(n.headers.get('location')).toBe('/inventario?q=x&local=frigorifico');
+	});
+
 		test('erros de validação respondem 400 e não 500', async () => {
 		const cases = [
 			['/?/add', { date: 'ontem', slot: 'jantar', title: 'x' }],

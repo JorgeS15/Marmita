@@ -3,11 +3,14 @@
 	import ItemForm from '$lib/components/ItemForm.svelte';
 	import StockBadge from '$lib/components/StockBadge.svelte';
 	import { LOCATIONS, doses, fmtNum, labelOf, slotLabel } from '$lib/constants.js';
-	import { addDays, dayMonth, weekStartOf, weekdayShort } from '$lib/dates.js';
+	import { addDays, dayMonth, weekdayShort } from '$lib/dates.js';
 
 	let { data, form } = $props();
 	let busy = $state(false);
 	const item = $derived(data.item);
+	/** Filtros da lista, para voltar a ela como estava. */
+	const voltar = $derived(data.back.split('?')[1] ?? '');
+	const voltarQs = $derived(voltar ? `?voltar=${encodeURIComponent(voltar)}` : '');
 	/** Destino ao mover doses: o primeiro local diferente do atual (frigorífico → congelador e vice-versa). */
 	let moveTo = $state('');
 	const itemLocation = $derived(item.location); // texto: a atualização automática não repõe a escolha
@@ -20,7 +23,7 @@
 
 <main class="page narrow">
 	<header class="page-header">
-		<a class="btn icon ghost" href="/inventario" aria-label="Voltar ao inventário">‹</a>
+		<a class="btn icon ghost" href={data.back} aria-label="Voltar ao inventário">‹</a>
 		<h1>{item.name} <span class="badge">{labelOf(LOCATIONS, item.location)}</span></h1>
 	</header>
 
@@ -36,7 +39,7 @@
 		{#if form?.ok}
 			<p class="alert ok" role="status">
 				{form.ok}
-				{#if form.target}<a href="/inventario/{form.target}">Ver lá</a>{/if}
+				{#if form.target}<a href="/inventario/{form.target}{voltarQs}">Ver lá</a>{/if}
 			</p>
 		{/if}
 
@@ -50,7 +53,7 @@
 				<ul class="entries">
 					{#each data.entries as e (e.id)}
 						<li>
-							<a href="/?w={weekStartOf(e.date)}&entrada={e.id}">
+							<a href="/?w={e.date}&entrada={e.id}">
 								{weekdayShort(e.date)}, {dayMonth(e.date)} · {slotLabel(e.slot, data.settings.morningSnack)}
 							</a>
 							<span class="muted small">{doses(e.units)}</span>
@@ -109,6 +112,7 @@
 				};
 			}}
 		>
+			<input type="hidden" name="voltar" value={voltar} />
 			{#if form?.error}<p class="alert" role="alert">{form.error}</p>{/if}
 			<ItemForm {item} today={data.today} />
 			<button class="btn primary block" disabled={busy}>Guardar</button>
@@ -123,6 +127,7 @@
 		<div class="row" style="justify-content:flex-end">
 			{#if !item.archived}
 				<form method="POST" action="?/archive" use:enhance>
+					<input type="hidden" name="voltar" value={voltar} />
 					<button class="btn">Arquivar</button>
 				</form>
 			{:else}
@@ -133,6 +138,7 @@
 						if (!confirm(`Apagar "${item.name}" definitivamente?`)) cancel();
 					}}
 				>
+					<input type="hidden" name="voltar" value={voltar} />
 					<button class="btn danger">Apagar definitivamente</button>
 				</form>
 			{/if}

@@ -10,7 +10,7 @@
 
 <main class="page narrow">
 	<header class="page-header">
-		<a class="btn icon ghost" href="/inventario" aria-label="Voltar ao inventário">‹</a>
+		<a class="btn icon ghost" href={data.back} aria-label="Voltar ao inventário">‹</a>
 		<h1>Novo item</h1>
 	</header>
 
@@ -26,6 +26,7 @@
 		}}
 	>
 		{#if form?.error}<p class="alert" role="alert">{form.error}</p>{/if}
+		<input type="hidden" name="voltar" value={data.back.split('?')[1] ?? ''} />
 		<ItemForm today={data.today} item={data.defaults} />
 		<button class="btn primary block" disabled={busy}>Adicionar ao inventário</button>
 	</form>

@@ -3,6 +3,7 @@ import { ValidationError, date, id, int, num, oneOf, text } from '$lib/server/va
 import { safeNext } from '$lib/server/forms.js';
 import { addDays, daysBetween, dayMonth, isISODate, weekStartOf, weekdayTitle } from '$lib/dates.js';
 import { doses, fmtNum, slotsFor } from '$lib/constants.js';
+import { inventoryHref } from '$lib/inventory.js';
 import { form } from './helpers.js';
 
 describe('validação de formulários', () => {
@@ -50,6 +51,20 @@ describe('datas', () => {
 		expect(weekStartOf('2026-10-12')).toBe('2026-10-11'); // segunda → domingo
 		expect(weekStartOf('2026-10-11')).toBe('2026-10-11');
 		expect(weekStartOf('2026-10-17')).toBe('2026-10-11'); // sábado
+	});
+
+	test('ou à segunda-feira, com a definição', () => {
+		expect(weekStartOf('2026-10-12', true)).toBe('2026-10-12'); // segunda
+		expect(weekStartOf('2026-10-17', true)).toBe('2026-10-12'); // sábado
+		expect(weekStartOf('2026-10-18', true)).toBe('2026-10-12'); // domingo fecha a semana
+		expect(weekStartOf('2026-11-01', true)).toBe('2026-10-26'); // atravessa o mês
+	});
+
+	test('voltar ao inventário com os filtros', () => {
+		expect(inventoryHref('local=congelador&q=sopa')).toBe('/inventario?q=sopa&local=congelador');
+		expect(inventoryHref('arquivados&categoria=carne')).toBe('/inventario?categoria=carne&arquivados');
+		expect(inventoryHref('next=//evil.com')).toBe('/inventario');
+		expect(inventoryHref(null)).toBe('/inventario');
 	});
 
 	test('contas com datas atravessam meses e a hora de verão', () => {

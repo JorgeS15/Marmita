@@ -4,6 +4,7 @@ import { parseItem } from '$lib/server/item-form.js';
 import { guard } from '$lib/server/forms.js';
 import { date, num, oneOf } from '$lib/server/validate.js';
 import { LOCATIONS, labelOf } from '$lib/constants.js';
+import { inventoryHref } from '$lib/inventory.js';
 import { today } from '$lib/dates.js';
 
 /** @param {string} raw */
@@ -14,11 +15,11 @@ function itemId(raw) {
 }
 
 /** @type {import('./$types').PageServerLoad} */
-export function load({ params }) {
+export function load({ params, url }) {
 	const id = itemId(params.id);
 	const item = getItem(id);
 	if (!item) error(404, 'Item não encontrado.');
-	return { item, entries: plannedEntriesFor(id), today: today() };
+	return { item, entries: plannedEntriesFor(id), today: today(), back: inventoryHref(url.searchParams.get('voltar')) };
 }
 
 /** @type {import('./$types').Actions} */
@@ -33,7 +34,7 @@ export const actions = {
 			const id = itemId(params.id);
 			if (original === d.quantity) d.quantity = getItem(id)?.quantity ?? d.quantity;
 			if (!updateItem(id, d, locals.user.id)) error(404, 'Item não encontrado.');
-			redirect(303, '/inventario');
+			redirect(303, inventoryHref(form.get('voltar')));
 		}),
 
 	/** Passa doses para outro local (ex.: congelar parte, ou tirar uma dose do congelador). */
@@ -58,9 +59,10 @@ export const actions = {
 			{ moved: true }
 		),
 
-	archive: ({ params, locals }) => {
+	archive: async ({ request, params, locals }) => {
+		const form = await request.formData();
 		if (!setArchived(itemId(params.id), true, locals.user.id)) error(404, 'Item não encontrado.');
-		redirect(303, '/inventario');
+		redirect(303, inventoryHref(form.get('voltar')));
 	},
 
 	unarchive: ({ params, locals }) => {
@@ -68,8 +70,10 @@ export const actions = {
 		return { ok: 'Item reposto no inventário.' };
 	},
 
-	delete: ({ params }) => {
+	delete: async ({ request, params }) => {
+		const form = await request.formData();
 		if (!deleteItem(itemId(params.id))) error(404, 'Item não encontrado.');
-		redirect(303, '/inventario?arquivados');
+		const back = inventoryHref(form.get('voltar'));
+		redirect(303, back.includes('arquivados') ? back : '/inventario?arquivados');
 	}
 };

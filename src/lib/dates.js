@@ -35,9 +35,13 @@ export function daysBetween(a, b) {
 	return Math.round((toUTC(b).getTime() - toUTC(a).getTime()) / DAY_MS);
 }
 
-/** Primeiro dia (domingo) da semana que contém `iso`. @param {string} iso */
-export function weekStartOf(iso) {
-	return addDays(iso, -toUTC(iso).getUTCDay()); // getUTCDay: 0 = domingo
+/**
+ * Primeiro dia da semana que contém `iso`: domingo, ou segunda-feira com `monday`.
+ * @param {string} iso @param {boolean} [monday]
+ */
+export function weekStartOf(iso, monday = false) {
+	const wd = toUTC(iso).getUTCDay(); // 0 = domingo
+	return addDays(iso, monday ? -((wd + 6) % 7) : -wd);
 }
 
 /**
@@ -118,7 +122,7 @@ export function weekRange(start) {
 	return `${dayMonth(start)} – ${dayMonth(end)}`;
 }
 
-/** Os 7 dias (domingo a sábado) da semana que começa em `start`. @param {string} start */
+/** Os 7 dias da semana que começa em `start`. @param {string} start */
 export function weekDays(start) {
 	return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }

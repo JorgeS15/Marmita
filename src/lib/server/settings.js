@@ -7,10 +7,12 @@ const DEFAULTS = {
 	/** Pedir confirmação do que foi comido? Se não, as refeições passadas contam como comidas. */
 	confirmations: '1',
 	/** Data em que as confirmações foram desligadas ("" = sempre). */
-	auto_consume_from: ''
+	auto_consume_from: '',
+	/** A semana começa à segunda-feira (senão, ao domingo). */
+	week_monday: '0'
 };
 
-/** @typedef {{ morningSnack: boolean, confirmations: boolean, autoConsumeFrom: string }} Settings */
+/** @typedef {{ morningSnack: boolean, confirmations: boolean, autoConsumeFrom: string, weekStartsMonday: boolean }} Settings */
 
 /** @returns {Settings} */
 export function getSettings() {
@@ -23,7 +25,8 @@ export function getSettings() {
 	return {
 		morningSnack: map.morning_snack === '1',
 		confirmations: map.confirmations === '1',
-		autoConsumeFrom: map.auto_consume_from
+		autoConsumeFrom: map.auto_consume_from,
+		weekStartsMonday: map.week_monday === '1'
 	};
 }
 
