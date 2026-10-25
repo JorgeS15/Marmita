@@ -3,6 +3,20 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.12.0] - 2026-10-25
+
+### Added
+- **Preparações divididas por local**: ao confirmar, as doses indicam-se por local (ex.: 3 no frigorífico e 2 no congelador). Fica um item por local com o nome da preparação, ou as doses juntam-se a um item com o mesmo nome nesse local.
+  - Sugestão automática: as refeições de "Para quando?" até 3 dias depois de preparar vão para o frigorífico, as restantes para o congelador.
+  - As refeições de "Para quando?" ficam com o frigorífico primeiro (as mais próximas) e o congelador depois; essas entram no aviso "Tirar do congelador".
+  - "Consumir até" por local: no frigorífico é sugerido +3 dias (editável); no congelador fica em branco.
+  - "Desfazer" repõe tudo (retira as doses e apaga os itens criados, se não forem usados).
+- **Mover doses para outro local** na página do item (ex.: congelar parte do que está no frigorífico, ou tirar uma dose do congelador para descongelar). Junta-se ao item com o mesmo nome no destino ou cria-o; as refeições planeadas acompanham as doses (as mais próximas para o frigorífico, as mais distantes para o congelador).
+- A página do item mostra o local ao lado do nome.
+
+### Changed
+- Ao confirmar uma preparação deixa de se escolher "Juntar a…" / "Criar item novo": junta-se automaticamente ao item com o mesmo nome no mesmo local.
+
 ## [1.11.0] - 2026-10-25
 
 ### Changed

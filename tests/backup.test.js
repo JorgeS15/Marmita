@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { db } from '$lib/server/db.js';
 import { dailyBackup, freshCopy, listBackups } from '$lib/server/backup.js';
 import { item, user } from './helpers.js';
 
@@ -29,6 +30,6 @@ test('cópia diária consistente e rotação das antigas (BACKUP_KEEP=3)', () =>
 test('cópia para descarregar', () => {
 	const file = freshCopy();
 	const copy = new DatabaseSync(file, { readOnly: true });
-	expect(copy.prepare('PRAGMA user_version').get()).toMatchObject({ user_version: 8 });
+	expect(copy.prepare('PRAGMA user_version').get()).toEqual(db().prepare('PRAGMA user_version').get());
 	copy.close();
 });

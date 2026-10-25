@@ -198,6 +198,44 @@ describe.skipIf(!existsSync(BUILD))('servidor (build)', () => {
 		expect((await action('/?/prepMove', { w: '2026-10-11', id: String(prep.id), date: 'amanhã' })).type).toBe('failure');
 	});
 
+		test('confirmar uma preparação dividida por locais e mover doses no inventário', async () => {
+		await action('/?/prepAdd', { w: '2026-10-11', date: '2026-10-12', title: 'Caril dividido', person_id: '', notes: '' });
+		const [prep] = q(`SELECT id FROM preparations WHERE title = 'Caril dividido'`);
+		const empty = await action('/?/prepDone', { w: '2026-10-11', id: String(prep.id), target: '', name: 'Caril dividido', stored_on: '2026-10-12', units_frigorifico: '0', units_congelador: '', units_despensa: '0' });
+		expect(empty).toMatchObject({ type: 'failure', status: 400 });
+		const ok = await action('/?/prepDone', {
+			w: '2026-10-11',
+			id: String(prep.id),
+			target: '',
+			name: 'Caril dividido',
+			category: 'carne',
+			stored_on: '2026-10-12',
+			units_frigorifico: '3',
+			best_before_frigorifico: '2026-10-15',
+			units_congelador: '2',
+			best_before_congelador: '',
+			units_despensa: '0',
+			item_notes: ''
+		});
+		expect(ok.type).toBe('redirect');
+		const items = q(`SELECT id, location, quantity, best_before FROM items WHERE name = 'Caril dividido' ORDER BY location`);
+		expect(items.map((i) => [i.location, i.quantity, i.best_before])).toEqual([
+			['congelador', 2, null],
+			['frigorifico', 3, '2026-10-15']
+		]);
+		const page = await (await req(`/?w=2026-10-11&preparacao=${prep.id}`)).text();
+		expect(page).toContain('frigorífico');
+
+		const fridge = items[1].id;
+		const moved = await action(`/inventario/${fridge}?/move`, { units: '1', location: 'congelador', best_before: '' });
+		expect(moved).toMatchObject({ type: 'success' });
+		expect(q(`SELECT location, quantity FROM items WHERE name = 'Caril dividido' ORDER BY location`)).toEqual([
+			{ location: 'congelador', quantity: 3 },
+			{ location: 'frigorifico', quantity: 2 }
+		]);
+		expect((await action(`/inventario/${fridge}?/move`, { units: '9', location: 'congelador' })).type).toBe('failure');
+	});
+
 		test('erros de validação respondem 400 e não 500', async () => {
 		const cases = [
 			['/?/add', { date: 'ontem', slot: 'jantar', title: 'x' }],

@@ -7,6 +7,7 @@ import {
 	completePreparation,
 	listIngredients,
 	listPrepMeals,
+	listOutputs,
 	removeIngredient,
 	duplicatePreparation,
 	movePreparation,
@@ -58,6 +59,7 @@ export function load({ url }) {
 		preparations,
 		ingredients: listIngredients(prepIds),
 		prepMeals: listPrepMeals(prepIds),
+		prepOutputs: listOutputs(prepIds),
 		openPreps: listOpenPreparations(addDays(now.date, -14)),
 		toThaw: listToThaw(now.date),
 		pending: settings.confirmations ? listPending(now) : [],
@@ -251,21 +253,25 @@ export const actions = {
 	prepDone: ({ request, locals }) =>
 		guard(async () => {
 			const form = await request.formData();
-			const targetRaw = form.get('target');
-			/** @type {number | null | 'none'} */
-			const target = targetRaw === 'none' ? 'none' : targetRaw ? id(form, 'target') : null;
-			if (typeof target === 'number' && !getItem(target)) throw new ValidationError('Esse item já não existe.');
+			const none = form.get('target') === 'none';
+			// Doses por local (ex.: 3 no frigorífico e 2 no congelador), cada uma com o seu "consumir até".
+			const outputs = LOCATIONS.map((l) => ({
+				location: l.value,
+				units: none ? 0 : num(form, `units_${l.value}`, { min: 0, max: 999, fallback: 0, label: `Doses (${l.label})` }),
+				best_before: date(form, `best_before_${l.value}`, { label: `Consumir até (${l.label})` })
+			}));
+			if (!none && !outputs.some((o) => o.units > 0)) {
+				throw new ValidationError('Indica as doses em pelo menos um local (ou escolhe "Não pôr no inventário").');
+			}
 			ensure(
 				completePreparation(
 					id(form),
 					{
-						units: target === 'none' ? 0 : num(form, 'units', { min: 0.1, max: 999, label: 'Doses' }),
-						target,
-						name: text(form, 'name', { required: target == null, max: 100, label: 'Nome' }),
+						none,
+						outputs,
+						name: text(form, 'name', { required: !none, max: 100, label: 'Nome' }),
 						category: oneOf(form, 'category', CATEGORIES.map((c) => c.value), { fallback: 'outro', label: 'Categoria' }),
-						location: oneOf(form, 'location', LOCATIONS.map((l) => l.value), { fallback: 'congelador', label: 'Local' }),
-						stored_on: /** @type {string} */ (date(form, 'stored_on', { required: target !== 'none', label: 'Data' })),
-						best_before: date(form, 'best_before', { label: 'Consumir até' }),
+						stored_on: /** @type {string} */ (date(form, 'stored_on', { required: !none, label: 'Data' })),
 						notes: text(form, 'item_notes', { max: 1000, label: 'Notas' })
 					},
 					locals.user.id

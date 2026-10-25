@@ -1,4 +1,6 @@
 import { db, transaction } from './db.js';
+import { ValidationError } from './validate.js';
+import { doses } from '$lib/constants.js';
 
 /**
  * @typedef {object} ItemStock
@@ -111,4 +113,67 @@ export function plannedEntriesFor(id) {
 			)
 			.all(id)
 	);
+}
+
+/**
+ * Passa doses de um item para outro local (ex.: 2 doses do frigorífico para o
+ * congelador, ou 1 do congelador para o frigorífico para descongelar).
+ * Junta-se a um item com o mesmo nome nesse local, se houver; senão cria-o.
+ * As refeições planeadas acompanham as doses: as mais próximas quando vão para
+ * o frigorífico/despensa, as mais distantes quando vão para o congelador.
+ * @param {number} id
+ * @param {{ units: number, location: string, best_before: string | null }} d
+ * @param {number} userId
+ * @returns {number | null} id do item de destino (null se o item não existe)
+ */
+export function moveDoses(id, d, userId) {
+	return transaction(() => {
+		const src = /** @type {any} */ (db().prepare('SELECT * FROM items WHERE id = ?').get(id));
+		if (!src) return null;
+		if (src.location === d.location) throw new ValidationError('Escolhe outro local.');
+		if (d.units > src.quantity + 1e-9) throw new ValidationError(`Só há ${doses(src.quantity)}.`);
+		const existing = /** @type {{ id: number } | undefined} */ (
+			db()
+				.prepare(`SELECT id FROM items WHERE archived = 0 AND name = ? COLLATE NOCASE AND location = ? ORDER BY id DESC LIMIT 1`)
+				.get(src.name, d.location)
+		);
+		let target;
+		if (existing) {
+			target = existing.id;
+			db()
+				.prepare(
+					`UPDATE items SET quantity = ROUND(quantity + ?, 2), best_before = COALESCE(?, best_before),
+					   updated_by = ?, updated_at = datetime('now') WHERE id = ?`
+				)
+				.run(d.units, d.best_before, userId, target);
+		} else {
+			const res = db()
+				.prepare(
+					`INSERT INTO items (name, category, location, quantity, stored_on, best_before, notes, created_by, updated_by)
+					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+				)
+				.run(src.name, src.category, d.location, d.units, src.stored_on, d.best_before, src.notes, userId, userId);
+			target = Number(res.lastInsertRowid);
+		}
+		db()
+			.prepare(`UPDATE items SET quantity = ROUND(quantity - ?, 2), updated_by = ?, updated_at = datetime('now') WHERE id = ?`)
+			.run(d.units, userId, id);
+
+		const latestFirst = d.location === 'congelador';
+		const planned = /** @type {{ id: number, units: number }[]} */ (
+			db()
+				.prepare(
+					`SELECT id, units FROM plan_entries WHERE item_id = ? AND status = 'planned'
+					 ORDER BY date ${latestFirst ? 'DESC' : 'ASC'}, id ${latestFirst ? 'DESC' : 'ASC'}`
+				)
+				.all(id)
+		);
+		let left = d.units;
+		for (const e of planned) {
+			if (e.units > left + 1e-9) break;
+			left -= e.units;
+			db().prepare('UPDATE plan_entries SET item_id = ?, thawed = 0 WHERE id = ?').run(target, e.id);
+		}
+		return target;
+	});
 }
