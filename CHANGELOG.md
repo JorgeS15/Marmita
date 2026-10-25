@@ -3,6 +3,12 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.11.0] - 2026-10-25
+
+### Changed
+- **Telemóvel: os dias da semana passam a estar lado a lado**, um de cada vez, a deslizar para os lados (vê-se a ponta do dia seguinte). Por cima há um seletor com os 7 dias para saltar diretamente; o dia de hoje fica com contorno e o dia visível fica marcado. Ao abrir a semana atual começa no dia de hoje; noutras semanas, no domingo. A atualização automática e abrir/fechar painéis não mexem na posição.
+- Sai o botão "Mostrar dias anteriores": os dias que já passaram estão à esquerda, basta deslizar. No ecrã largo continua a grelha de 7 colunas.
+
 ## [1.10.0] - 2026-10-14
 
 ### Added
