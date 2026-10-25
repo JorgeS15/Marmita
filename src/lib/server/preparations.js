@@ -125,12 +125,38 @@ export function itemsNamed(title) {
 	);
 }
 
+/** Ordem em que as doses de uma preparação são comidas: primeiro o que não aguenta tanto tempo. */
+const LOCATION_ORDER = ['frigorifico', 'despensa', 'congelador'];
+
 /**
- * Confirma a preparação: desconta os ingredientes e cria um item novo, soma as
- * doses a um existente, ou (target 'none') não põe nada no inventário.
+ * @typedef {{ location: string, units: number, best_before: string | null }} PrepOutputInput
+ * @typedef {{ id: number, prep_id: number, item_id: number | null, units: number, created: number,
+ *   name: string | null, location: string | null }} PrepOutput
+ */
+
+/** Itens que receberam doses das preparações (um por local). @param {number[]} prepIds @returns {PrepOutput[]} */
+export function listOutputs(prepIds) {
+	if (!prepIds.length) return [];
+	return /** @type {any} */ (
+		db()
+			.prepare(
+				`SELECT o.*, i.name, i.location FROM prep_outputs o LEFT JOIN items i ON i.id = o.item_id
+				 WHERE o.prep_id IN (${prepIds.map(() => '?').join(',')}) ORDER BY o.id`
+			)
+			.all(...prepIds)
+	);
+}
+
+/**
+ * Confirma a preparação: desconta os ingredientes e põe as doses no inventário,
+ * divididas por local (um item por local, com o nome da preparação). Se já
+ * houver um item com o mesmo nome nesse local, as doses juntam-se a ele.
+ * Com `none`, não põe nada no inventário.
+ * As refeições de "Para quando?" ficam com o item de cada local: as mais
+ * próximas com o frigorífico (depois a despensa) e as mais distantes com o congelador.
  * @param {number} id
- * @param {{ units: number, target: number | null | 'none', name: string, category: string, location: string,
- *   stored_on: string, best_before: string | null, notes: string }} d
+ * @param {{ none?: boolean, outputs: PrepOutputInput[], name: string, category: string,
+ *   stored_on: string, notes: string }} d
  * @param {number} userId
  */
 export function completePreparation(id, d, userId) {
@@ -138,49 +164,70 @@ export function completePreparation(id, d, userId) {
 		const prep = getPreparation(id);
 		if (!prep || prep.status === 'done') return false;
 		consumeIngredients(id);
-		if (d.target === 'none') {
-			db()
-				.prepare(
-					`UPDATE preparations SET status = 'done', item_id = NULL, units_added = 0, updated_by = ?,
-					   updated_at = datetime('now') WHERE id = ?`
-				)
-				.run(userId, id);
-			return true;
+		const outputs = d.none ? [] : d.outputs.filter((o) => o.units > 0);
+		outputs.sort((a, b) => LOCATION_ORDER.indexOf(a.location) - LOCATION_ORDER.indexOf(b.location));
+
+		/** @type {{ itemId: number, left: number }[]} */
+		const placed = [];
+		for (const o of outputs) {
+			const existing = /** @type {{ id: number } | undefined} */ (
+				db()
+					.prepare(
+						`SELECT id FROM items WHERE archived = 0 AND name = ? COLLATE NOCASE AND location = ?
+						 ORDER BY id DESC LIMIT 1`
+					)
+					.get(d.name.trim(), o.location)
+			);
+			let itemId;
+			let created = 0;
+			if (existing) {
+				itemId = existing.id;
+				db()
+					.prepare(
+						`UPDATE items SET quantity = ROUND(quantity + ?, 2), stored_on = ?,
+						   best_before = COALESCE(?, best_before), updated_by = ?, updated_at = datetime('now') WHERE id = ?`
+					)
+					.run(o.units, d.stored_on, o.best_before, userId, itemId);
+			} else {
+				const res = db()
+					.prepare(
+						`INSERT INTO items (name, category, location, quantity, stored_on, best_before, notes, created_by, updated_by)
+						 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+					)
+					.run(d.name, d.category, o.location, o.units, d.stored_on, o.best_before, d.notes, userId, userId);
+				itemId = Number(res.lastInsertRowid);
+				created = 1;
+			}
+			db().prepare('INSERT INTO prep_outputs (prep_id, item_id, units, created) VALUES (?, ?, ?, ?)').run(id, itemId, o.units, created);
+			placed.push({ itemId, left: o.units });
 		}
-		let itemId = d.target;
-		let created = 0;
-		if (itemId != null) {
-			const res = db()
-				.prepare(
-					`UPDATE items SET quantity = ROUND(quantity + ?, 2), stored_on = ?, archived = 0, updated_by = ?,
-					   updated_at = datetime('now') WHERE id = ?`
-				)
-				.run(d.units, d.stored_on, userId, itemId);
-			if (!res.changes) throw new Error('Item não encontrado.');
-		} else {
-			const res = db()
-				.prepare(
-					`INSERT INTO items (name, category, location, quantity, stored_on, best_before, notes, created_by, updated_by)
-					 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-				)
-				.run(d.name, d.category, d.location, d.units, d.stored_on, d.best_before, d.notes, userId, userId);
-			itemId = Number(res.lastInsertRowid);
-			created = 1;
-		}
+
+		const main = placed[0] ?? null;
 		db()
 			.prepare(
-				`UPDATE preparations SET status = 'done', item_id = ?, units_added = ?, created_item = ?, updated_by = ?,
+				`UPDATE preparations SET status = 'done', item_id = ?, units_added = ?, created_item = 0, updated_by = ?,
 				   updated_at = datetime('now') WHERE id = ?`
 			)
-			.run(itemId, d.units, created, userId, id);
-		// Refeições já planeadas com esta preparação passam a usar o item (contam no stock);
-		// as que já foram comidas descontam agora.
-		db().prepare('UPDATE plan_entries SET item_id = ? WHERE prep_id = ?').run(itemId, id);
-		const eaten = /** @type {{ id: number, units: number }[]} */ (
-			db().prepare(`SELECT id, units FROM plan_entries WHERE prep_id = ? AND status = 'eaten' ORDER BY date, id`).all(id)
-		);
-		for (const e of eaten) {
-			db().prepare('UPDATE plan_entries SET deducted = ? WHERE id = ?').run(takeStock(itemId, e.units), e.id);
+			.run(main?.itemId ?? null, outputs.reduce((n, o) => n + o.units, 0), userId, id);
+
+		if (placed.length) {
+			// Refeições já planeadas com esta preparação passam a usar os itens (contam no stock),
+			// por ordem de data; as que já foram comidas descontam agora.
+			const meals = /** @type {{ id: number, units: number, status: string }[]} */ (
+				db()
+					.prepare(
+						`SELECT id, units, status FROM plan_entries WHERE prep_id = ?
+						 ORDER BY date, CASE slot WHEN 'pequeno_almoco' THEN 0 WHEN 'lanche_manha' THEN 1 WHEN 'almoco' THEN 2
+						   WHEN 'lanche_tarde' THEN 3 ELSE 4 END, id`
+					)
+					.all(id)
+			);
+			for (const e of meals) {
+				const target = placed.find((p) => p.left >= e.units - 1e-9) ?? placed.find((p) => p.left > 0) ?? placed[placed.length - 1];
+				target.left = Math.round((target.left - e.units) * 100) / 100;
+				const deducted = e.status === 'eaten' ? takeStock(target.itemId, e.units) : 0;
+				db().prepare('UPDATE plan_entries SET item_id = ?, deducted = ? WHERE id = ?').run(target.itemId, deducted, e.id);
+			}
 		}
 		return true;
 	});
@@ -192,26 +239,31 @@ export function undoPreparation(id, userId) {
 		const prep = getPreparation(id);
 		if (!prep || prep.status !== 'done') return false;
 		restoreIngredients(id);
-		if (prep.item_id != null) {
-			// Devolve o que as refeições comidas tinham descontado e retira as doses que a preparação somou.
+		for (const o of listOutputs([id])) {
+			if (o.item_id == null) continue;
+			// Devolve o que as refeições comidas tinham descontado deste item e retira as doses que a preparação lhe somou.
 			const back = /** @type {{ n: number }} */ (
-				db().prepare(`SELECT COALESCE(SUM(deducted), 0) AS n FROM plan_entries WHERE prep_id = ? AND status = 'eaten'`).get(id)
-			).n;
-			returnStock(prep.item_id, back);
-			takeStock(prep.item_id, prep.units_added);
-			db().prepare('UPDATE plan_entries SET item_id = NULL, deducted = 0 WHERE prep_id = ?').run(id);
-			// O item criado por esta preparação desaparece, se nada mais o usar.
-			if (prep.created_item) {
 				db()
-					.prepare(
-						`DELETE FROM items WHERE id = ? AND quantity = 0
-						   AND NOT EXISTS (SELECT 1 FROM plan_entries WHERE item_id = items.id)
-						   AND NOT EXISTS (SELECT 1 FROM prep_ingredients WHERE item_id = items.id)
-						   AND NOT EXISTS (SELECT 1 FROM preparations WHERE item_id = items.id AND id != ?)`
-					)
-					.run(prep.item_id, id);
-			}
+					.prepare(`SELECT COALESCE(SUM(deducted), 0) AS n FROM plan_entries WHERE prep_id = ? AND item_id = ? AND status = 'eaten'`)
+					.get(id, o.item_id)
+			).n;
+			returnStock(o.item_id, back);
+			takeStock(o.item_id, o.units);
 		}
+		db().prepare('UPDATE plan_entries SET item_id = NULL, deducted = 0 WHERE prep_id = ?').run(id);
+		// Os itens criados por esta preparação desaparecem, se nada mais os usar.
+		for (const o of listOutputs([id])) {
+			if (!o.created || o.item_id == null) continue;
+			db()
+				.prepare(
+					`DELETE FROM items WHERE id = ? AND quantity = 0
+					   AND NOT EXISTS (SELECT 1 FROM plan_entries WHERE item_id = items.id)
+					   AND NOT EXISTS (SELECT 1 FROM prep_ingredients WHERE item_id = items.id)
+					   AND NOT EXISTS (SELECT 1 FROM prep_outputs WHERE item_id = items.id AND prep_id != ?)`
+				)
+				.run(o.item_id, id);
+		}
+		db().prepare('DELETE FROM prep_outputs WHERE prep_id = ?').run(id);
 		db()
 			.prepare(
 				`UPDATE preparations SET status = 'planned', item_id = NULL, units_added = 0, created_item = 0, updated_by = ?,

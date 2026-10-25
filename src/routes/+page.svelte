@@ -124,18 +124,45 @@
 		return id ? (data.preparations.find((p) => p.id === id) ?? null) : null;
 	});
 
-	/** Itens do inventário com o mesmo nome da preparação (para juntar doses). */
+	/** Itens do inventário com o mesmo nome da preparação (as doses juntam-se ao do mesmo local). */
 	const sameName = $derived(
 		openPrep ? data.items.filter((i) => normalize(i.name) === normalize(openPrep.title)) : []
 	);
-	/** "" = criar item novo; senão, id do item a reforçar. */
+	/** "" = pôr no inventário; "none" = não pôr. */
 	let prepTarget = $state('');
+	/** Doses por local ao confirmar (texto, como nos campos). @type {Record<string, string>} */
+	let split = $state({});
 	// Só repõe ao abrir outra preparação (não a cada atualização dos dados em segundo plano).
 	const openPrepId = $derived(openPrep?.id ?? null);
 	$effect(() => {
 		openPrepId;
-		prepTarget = untrack(() => (sameName.length ? String(sameName[0].id) : ''));
+		untrack(() => {
+			prepTarget = '';
+			split = defaultSplit();
+		});
 	});
+
+	/**
+	 * Sugestão de divisão: as refeições de "Para quando?" até 3 dias depois de
+	 * preparar ficam no frigorífico, as restantes no congelador (4 doses no
+	 * congelador se não houver refeições marcadas).
+	 */
+	function defaultSplit() {
+		const p = openPrep;
+		/** @type {Record<string, string>} */
+		const out = Object.fromEntries(LOCATIONS.map((l) => [l.value, '0']));
+		if (!p) return out;
+		const meals = data.prepMeals.filter((m) => m.prep_id === p.id);
+		if (!meals.length) return { ...out, congelador: '4' };
+		const soon = addDays(p.date, 3);
+		const fridge = meals.filter((m) => m.date <= soon).reduce((n, m) => n + m.units, 0);
+		const freezer = meals.filter((m) => m.date > soon).reduce((n, m) => n + m.units, 0);
+		return { ...out, frigorifico: fmtNum(fridge), congelador: fmtNum(freezer) };
+	}
+
+	/** @param {string} v */
+	const splitNum = (v) => Number(String(v ?? '').replace(',', '.')) || 0;
+	const splitTotal = $derived(Object.values(split).reduce((n, v) => n + splitNum(v), 0));
 
 	/** @param {string} iso */
 	const dayLabel = (iso) => `${weekdayShort(iso)}, ${dayMonth(iso)}`;
@@ -618,8 +645,12 @@
 			{#if p.status === 'done'}
 				{#if p.notes}<p class="note">{p.notes}</p>{/if}
 				<p class="alert ok" style="margin:0">
-					{#if p.item_id}
-						Preparado: +{doses(p.units_added)} em <a href="/inventario/{p.item_id}">{p.item_name}</a>.
+					{#if data.prepOutputs.some((o) => o.prep_id === p.id)}
+						Preparado:
+						{#each data.prepOutputs.filter((o) => o.prep_id === p.id) as o, i (o.id)}
+							{i ? ', ' : ''}+{doses(o.units)} no
+							{#if o.item_id}<a href="/inventario/{o.item_id}">{labelOf(LOCATIONS, o.location).toLowerCase()}</a>{:else}inventário{/if}
+						{/each}.
 					{:else}
 						Preparado (sem pôr no inventário).
 					{/if}
@@ -748,47 +779,64 @@
 						<label class="field">
 							<span>No inventário</span>
 							<select name="target" bind:value={prepTarget}>
-								{#each sameName as i (i.id)}
-									<option value={String(i.id)}>Juntar a "{i.name}" ({fmtNum(i.quantity)} em stock)</option>
-								{/each}
-								<option value="">Criar item novo</option>
+								<option value="">Pôr no inventário</option>
 								<option value="none">Não pôr no inventário</option>
 							</select>
 						</label>
 						{#if prepTarget !== 'none'}
+							<fieldset class="split">
+								<legend>Doses por local <span class="hint">(total: {fmtNum(splitTotal)})</span></legend>
+								{#each LOCATIONS as l (l.value)}
+									{@const join = sameName.find((i) => i.location === l.value)}
+									<div class="split-row" class:off={splitNum(split[l.value]) <= 0}>
+										<label class="field">
+											<span>{l.label}</span>
+											<input
+												type="text"
+												inputmode="decimal"
+												pattern="[0-9]+([.,][0-9]+)?"
+												autocomplete="off"
+												name="units_{l.value}"
+												bind:value={split[l.value]}
+											/>
+										</label>
+										{#if splitNum(split[l.value]) > 0}
+											<label class="field">
+												<span>Consumir até <span class="hint">(opcional)</span></span>
+												<input
+													type="date"
+													name="best_before_{l.value}"
+													value={l.value === 'frigorifico' ? addDays(p.date, 3) : ''}
+												/>
+											</label>
+											{#if join}
+												<p class="muted small join">Junta a "{join.name}" ({fmtNum(join.quantity)} em stock).</p>
+											{/if}
+										{/if}
+									</div>
+								{/each}
+								{#if prepMeals.length}
+									<p class="muted small" style="margin:0">
+										As refeições de "Para quando?" ficam com o frigorífico primeiro (as mais próximas) e o congelador
+										depois.
+									</p>
+								{/if}
+							</fieldset>
 							<div class="grid-2">
 								<label class="field">
-									<span>Doses</span>
-									<input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" autocomplete="off" name="units" value={fmtNum(prepMeals.reduce((n, m) => n + m.units, 0) || 4)} required />
+									<span>Nome</span>
+									<input type="text" name="name" maxlength="100" value={p.title} required />
 								</label>
 								<label class="field">
 									<span>Preparado em</span>
 									<input type="date" name="stored_on" value={p.date} required />
 								</label>
 							</div>
-						{/if}
-						{#if prepTarget === ''}
 							<label class="field">
-								<span>Nome</span>
-								<input type="text" name="name" maxlength="100" value={p.title} required />
-							</label>
-							<div class="grid-2">
-								<label class="field">
-									<span>Categoria</span>
-									<select name="category" value="outro">
-										{#each CATEGORIES as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
-									</select>
-								</label>
-								<label class="field">
-									<span>Local</span>
-									<select name="location" value="congelador">
-										{#each LOCATIONS as l (l.value)}<option value={l.value}>{l.label}</option>{/each}
-									</select>
-								</label>
-							</div>
-							<label class="field">
-								<span>Consumir até <span class="hint">(opcional)</span></span>
-								<input type="date" name="best_before" />
+								<span>Categoria</span>
+								<select name="category" value={sameName[0]?.category ?? 'outro'}>
+									{#each CATEGORIES as c (c.value)}<option value={c.value}>{c.label}</option>{/each}
+								</select>
 							</label>
 							<label class="field">
 								<span>Notas do item <span class="hint">(opcional)</span></span>
@@ -1477,6 +1525,39 @@
 		border-radius: var(--radius-sm);
 		background: var(--surface-2);
 		white-space: pre-wrap;
+	}
+
+	.split {
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		padding: 10px 12px 12px;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		min-width: 0;
+	}
+
+	.split legend {
+		font-weight: 600;
+		font-size: 0.9rem;
+		padding: 0 4px;
+	}
+
+	.split-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+		gap: 8px;
+		align-items: end;
+	}
+
+	.split-row.off .field span {
+		color: var(--text-muted);
+	}
+
+	.split-row .join {
+		grid-column: 1 / -1;
+		margin: -4px 0 0;
 	}
 
 	.status-actions {

@@ -1,8 +1,9 @@
 import { error, redirect } from '@sveltejs/kit';
-import { deleteItem, getItem, plannedEntriesFor, setArchived, updateItem } from '$lib/server/items.js';
+import { deleteItem, getItem, moveDoses, plannedEntriesFor, setArchived, updateItem } from '$lib/server/items.js';
 import { parseItem } from '$lib/server/item-form.js';
 import { guard } from '$lib/server/forms.js';
-import { num } from '$lib/server/validate.js';
+import { date, num, oneOf } from '$lib/server/validate.js';
+import { LOCATIONS, labelOf } from '$lib/constants.js';
 import { today } from '$lib/dates.js';
 
 /** @param {string} raw */
@@ -34,6 +35,28 @@ export const actions = {
 			if (!updateItem(id, d, locals.user.id)) error(404, 'Item não encontrado.');
 			redirect(303, '/inventario');
 		}),
+
+	/** Passa doses para outro local (ex.: congelar parte, ou tirar uma dose do congelador). */
+	move: ({ request, params, locals }) =>
+		guard(
+			async () => {
+				const form = await request.formData();
+				const id = itemId(params.id);
+				const d = {
+					units: num(form, 'units', { min: 0.1, max: 999, label: 'Doses' }),
+					location: oneOf(form, 'location', LOCATIONS.map((l) => l.value), { label: 'Local' }),
+					best_before: date(form, 'best_before', { label: 'Consumir até' })
+				};
+				const target = moveDoses(id, d, locals.user.id);
+				if (target == null) error(404, 'Item não encontrado.');
+				return {
+					moved: true,
+					ok: `${String(d.units).replace('.', ',')} ${d.units === 1 ? 'dose passou' : 'doses passaram'} para o ${labelOf(LOCATIONS, d.location).toLowerCase()}.`,
+					target
+				};
+			},
+			{ moved: true }
+		),
 
 	archive: ({ params, locals }) => {
 		if (!setArchived(itemId(params.id), true, locals.user.id)) error(404, 'Item não encontrado.');

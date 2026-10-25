@@ -2,12 +2,18 @@
 	import { enhance } from '$app/forms';
 	import ItemForm from '$lib/components/ItemForm.svelte';
 	import StockBadge from '$lib/components/StockBadge.svelte';
-	import { doses, slotLabel } from '$lib/constants.js';
-	import { dayMonth, weekStartOf, weekdayShort } from '$lib/dates.js';
+	import { LOCATIONS, doses, fmtNum, labelOf, slotLabel } from '$lib/constants.js';
+	import { addDays, dayMonth, weekStartOf, weekdayShort } from '$lib/dates.js';
 
 	let { data, form } = $props();
 	let busy = $state(false);
 	const item = $derived(data.item);
+	/** Destino ao mover doses: o primeiro local diferente do atual (frigorífico → congelador e vice-versa). */
+	let moveTo = $state('');
+	const itemLocation = $derived(item.location); // texto: a atualização automática não repõe a escolha
+	$effect(() => {
+		moveTo = itemLocation === 'congelador' ? 'frigorifico' : 'congelador';
+	});
 </script>
 
 <svelte:head><title>{item.name} · Marmita</title></svelte:head>
@@ -15,7 +21,7 @@
 <main class="page narrow">
 	<header class="page-header">
 		<a class="btn icon ghost" href="/inventario" aria-label="Voltar ao inventário">‹</a>
-		<h1>{item.name}</h1>
+		<h1>{item.name} <span class="badge">{labelOf(LOCATIONS, item.location)}</span></h1>
 	</header>
 
 	<div class="stack">
@@ -27,7 +33,12 @@
 				</form>
 			</div>
 		{/if}
-		{#if form?.ok}<p class="alert ok" role="status">{form.ok}</p>{/if}
+		{#if form?.ok}
+			<p class="alert ok" role="status">
+				{form.ok}
+				{#if form.target}<a href="/inventario/{form.target}">Ver lá</a>{/if}
+			</p>
+		{/if}
 
 		<section class="card stack">
 			<StockBadge quantity={item.quantity} planned={item.planned} free={item.free} />
@@ -51,6 +62,40 @@
 				<p class="muted small" style="margin:0">Não está planeado.</p>
 			{/if}
 		</section>
+
+		{#if !item.archived && item.quantity > 0}
+			<details class="card move" open={!!form?.moved && !!form?.error}>
+				<summary>↔ Mover doses para outro local</summary>
+				<form method="POST" action="?/move" class="stack" use:enhance={() => async ({ update }) => update()}>
+					{#if form?.moved && form?.error}<p class="alert" role="alert">{form.error}</p>{/if}
+					<p class="muted small" style="margin:0">
+						Ex.: congelar parte do que está no frigorífico, ou tirar uma dose do congelador para descongelar. As
+						refeições planeadas acompanham as doses.
+					</p>
+					<div class="grid-2">
+						<label class="field">
+							<span>Doses <span class="hint">(de {fmtNum(item.quantity)})</span></span>
+							<input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" autocomplete="off" name="units" value="1" required />
+						</label>
+						<label class="field">
+							<span>Para</span>
+							<select name="location" bind:value={moveTo}>
+								{#each LOCATIONS.filter((l) => l.value !== item.location) as l (l.value)}
+									<option value={l.value}>{l.label}</option>
+								{/each}
+							</select>
+						</label>
+					</div>
+					<label class="field">
+						<span>Consumir até <span class="hint">(opcional)</span></span>
+						{#key moveTo}
+							<input type="date" name="best_before" value={moveTo === 'frigorifico' ? addDays(data.today, 3) : ''} />
+						{/key}
+					</label>
+					<button class="btn primary">Mover</button>
+				</form>
+			</details>
+		{/if}
 
 		<form
 			method="POST"
@@ -103,6 +148,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
+	}
+
+	.move summary {
+		cursor: pointer;
+		font-weight: 600;
+		min-height: 28px;
+	}
+
+	.move[open] summary {
+		margin-bottom: 10px;
 	}
 
 	.entries li {
