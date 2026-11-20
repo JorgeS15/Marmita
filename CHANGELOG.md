@@ -3,6 +3,11 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.13.1] - 2026-11-20
+
+### Changed
+- Preparações, "Para quando? → Marcar refeição": escolher **Ambos** põe logo 2 doses (uma por pessoa) e escolher uma pessoa volta a 1. Se a preparação já for para ambos, o formulário abre com 2 doses.
+
 ## [1.13.0] - 2026-10-25
 
 ### Added

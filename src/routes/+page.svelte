@@ -695,7 +695,19 @@
 					{/if}
 					<details class="sub">
 						<summary>+ Marcar refeição</summary>
-						<form method="POST" action="?/prepMeal" class="stack" use:enhance={submit()}>
+						<form
+							method="POST"
+							action="?/prepMeal"
+							class="stack"
+							use:enhance={submit()}
+							onchange={(ev) => {
+								// "Ambos" = uma dose por pessoa; uma pessoa = 1 dose.
+								const t = /** @type {HTMLInputElement} */ (ev.target);
+								if (t.name !== 'person_id' || !t.form) return;
+								const units = /** @type {HTMLInputElement} */ (t.form.elements.namedItem('units'));
+								units.value = String(t.value ? 1 : data.users.length);
+							}}
+						>
 							<input type="hidden" name="w" value={data.start} />
 							<input type="hidden" name="id" value={p.id} />
 							<div class="grid-2">
@@ -713,7 +725,7 @@
 							<PersonPicker users={data.users} value={p.person_id} />
 							<label class="field">
 								<span>Doses</span>
-								<input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" autocomplete="off" name="units" value="1" required />
+								<input type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]+)?" autocomplete="off" name="units" value={p.person_id == null ? data.users.length : 1} required />
 							</label>
 							<button class="btn primary">Marcar</button>
 						</form>
