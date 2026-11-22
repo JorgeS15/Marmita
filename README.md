@@ -5,6 +5,9 @@ Planeador de refeições caseiro: um **inventário** do que está congelado ou g
 
 A interface está em português de Portugal.
 
+<img width="1279" height="911" alt="image" src="https://github.com/user-attachments/assets/5cc006cd-7a85-4edc-a3d3-d123dfb27af4" />
+
+
 ## Funcionalidades
 
 - **Inventário**: nome, categoria, local (congelador, frigorífico ou despensa), doses, data de congelação, "consumir até" e notas. Cada item mostra `stock · planeadas · livres` e avisa quando está a acabar o prazo ou está há mais de 3 meses no congelador.
