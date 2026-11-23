@@ -31,6 +31,8 @@ A interface está em português de Portugal.
 - **Cópias de segurança** diárias automáticas, descarga da base de dados e exportação em JSON.
 - **PWA** instalável, com tema claro e escuro.
 
+O que está planeado a seguir está no [ROADMAP](ROADMAP.md).
+
 Stack: SvelteKit 2 + Svelte 5, `@sveltejs/adapter-node` e SQLite através do módulo nativo `node:sqlite` (Node 24). Não há dependências de runtime: a imagem leva apenas `build/` e `package.json`.
 
 ---
