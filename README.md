@@ -14,6 +14,7 @@ A interface está em português de Portugal.
   - Aceita meias doses (ex.: `0,5`).
   - Permite **mover doses** de um local para outro, por exemplo para congelar parte do que está no frigorífico ou para descongelar uma dose.
   - A pesquisa e os filtros mantêm-se ao abrir um item e voltar à lista.
+  - **Etiquetas** para as caixas: nome, data de congelação, "consumir até" e doses, nos tamanhos da etiquetadora Marklife P15. Dá para descarregar em PNG ou imprimir numa impressora normal. A impressão direta na P15 vem a seguir (ver [ROADMAP](ROADMAP.md)).
 - **Semana**: de domingo a sábado ou de segunda a domingo (definição da casa). Tem pequeno-almoço, lanche da manhã (opcional), almoço, lanche da tarde e jantar.
   - Cada refeição pode ter várias entradas, vindas do inventário ou em texto livre.
   - Cada entrada é atribuída a uma pessoa da casa ou a todas, e cada pessoa tem a sua cor.
@@ -220,6 +221,7 @@ src/
 │  ├─ constants.js          # categorias, locais, refeições do dia, cores, doses
 │  ├─ stock.js              # indicadores de antiguidade/validade
 │  ├─ inventory.js          # filtros da lista do inventário (voltar à lista)
+│  ├─ labels/               # etiquetas: conteúdo (model.js) e desenho a preto e branco num canvas (render.js)
 │  ├─ components/           # BottomSheet, ItemPicker, PrepEditor, PersonPicker, DayChips, PushSettings, …
 │  └─ server/
 │     ├─ db.js              # node:sqlite + migrações (PRAGMA user_version)
@@ -235,7 +237,7 @@ src/
 │     └─ backup.js          # cópias diárias (VACUUM INTO)
 └─ routes/
    ├─ +page.*               # Semana (?w=AAAA-MM-DD; painéis no URL)
-   ├─ inventario/           # lista, novo, [id]
+   ├─ inventario/           # lista, novo, [id], [id]/etiqueta
    ├─ ideias/               # bloco de notas (lista, nova, [id])
    ├─ definicoes/           # perfil, refeições da casa, notificações, palavra-passe, pessoas, dados
    ├─ login/ setup/ logout/

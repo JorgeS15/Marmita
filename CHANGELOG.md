@@ -3,6 +3,15 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.14.0] - 2026-11-24
+
+### Added
+- **Etiquetas** para os itens do inventário (botão "🏷 Etiqueta" na página do item). Primeira fase da impressão de etiquetas para a etiquetadora Marklife P15.
+  - Nome, data de congelação/entrada ("Cong.", "Feito" ou "Desde", conforme o local), "consumir até" e doses por etiqueta. Cada parte pode ser desligada e o nome pode ser editado só para a etiqueta.
+  - Tamanhos dos rolos da P15/P12: 40×12, 30×15, 40×14, 50×15 e 30×12 mm. A pré-visualização tem o tamanho real em pontos (8 por mm, 96 na largura) e é a preto e branco, como sai na etiquetadora.
+  - **Descarregar PNG**, para abrir na app da etiquetadora, e **Imprimir** numa impressora normal, com várias cópias ao tamanho real e contorno para recortar.
+  - O tamanho e as opções ficam guardados no dispositivo.
+
 ## [1.13.1] - 2026-11-20
 
 ### Changed

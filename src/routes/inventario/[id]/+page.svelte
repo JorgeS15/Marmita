@@ -25,6 +25,7 @@
 	<header class="page-header">
 		<a class="btn icon ghost" href={data.back} aria-label="Voltar ao inventário">‹</a>
 		<h1>{item.name} <span class="badge">{labelOf(LOCATIONS, item.location)}</span></h1>
+		<a class="btn small label-btn" href="/inventario/{item.id}/etiqueta{voltarQs}">🏷 Etiqueta</a>
 	</header>
 
 	<div class="stack">
@@ -147,6 +148,11 @@
 </main>
 
 <style>
+	.label-btn {
+		margin-left: auto;
+		flex: none;
+	}
+
 	.entries {
 		list-style: none;
 		margin: 0;
