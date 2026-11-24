@@ -3,6 +3,8 @@
 	import { LOCATIONS, fmtNum, labelOf } from '$lib/constants.js';
 	import { DEFAULT_LABEL_SIZE, LABEL_SIZES, labelContent, labelDots, labelSize } from '$lib/labels/model.js';
 	import { drawLabel } from '$lib/labels/render.js';
+	import { DENSITIES, bluetoothSupported, rasterFromRGBA } from '$lib/labels/p15.js';
+	import { desligar, etiquetadora, imprimir, ligar } from '$lib/labels/bluetooth.svelte.js';
 
 	let { data } = $props();
 	const item = $derived(data.item);
@@ -17,6 +19,10 @@
 	let copies = $state(1);
 	let title = $state('');
 	let titleTouched = false;
+	let density = $state(2);
+	let flip = $state(false);
+	let supported = $state(true);
+	let printed = $state('');
 
 	/** @type {HTMLCanvasElement | undefined} */
 	let canvas = $state();
@@ -30,6 +36,7 @@
 	const dots = $derived(labelDots(size));
 	const sizeInfo = $derived(labelSize(size));
 	const copiesN = $derived(Math.min(50, Math.max(1, Math.floor(copies) || 1)));
+	const pct = $derived(Math.round(etiquetadora.progress * 100));
 
 	// O nome acompanha o item (atualização automática) enquanto não for editado.
 	$effect(() => {
@@ -39,6 +46,7 @@
 	// Uma dose por etiqueta; se o item tiver menos (ex.: 0,5), essa quantidade.
 	const itemQty = $derived(item.quantity);
 	onMount(() => {
+		supported = bluetoothSupported();
 		dosesText = fmtNum(itemQty > 0 && itemQty < 1 ? itemQty : 1);
 		try {
 			const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}');
@@ -46,13 +54,15 @@
 			if (typeof saved.showStored === 'boolean') showStored = saved.showStored;
 			if (typeof saved.showBestBefore === 'boolean') showBestBefore = saved.showBestBefore;
 			if (typeof saved.showDoses === 'boolean') showDoses = saved.showDoses;
+			if (DENSITIES.some((d) => d.value === saved.density)) density = saved.density;
+			if (typeof saved.flip === 'boolean') flip = saved.flip;
 		} catch {
 			// Sem armazenamento local: ficam os valores por omissão.
 		}
 	});
 
 	$effect(() => {
-		const prefs = { size, showStored, showBestBefore, showDoses };
+		const prefs = { size, showStored, showBestBefore, showDoses, density, flip };
 		try {
 			localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
 		} catch {
@@ -65,6 +75,17 @@
 		drawLabel(canvas, content, dots);
 		png = canvas.toDataURL('image/png');
 	});
+
+	async function printLabel() {
+		if (!canvas) return;
+		printed = '';
+		const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
+		const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+		const raster = rasterFromRGBA(img.data, img.width, img.height, { flip });
+		if (await imprimir(raster, { density, copies: copiesN })) {
+			printed = copiesN === 1 ? 'Etiqueta impressa.' : `${copiesN} etiquetas impressas.`;
+		}
+	}
 
 	function download() {
 		const a = document.createElement('a');
@@ -96,6 +117,61 @@
 			<p class="muted small" style="margin:0">
 				{sizeInfo.label} · {dots.width} × {dots.height} pontos, a preto e branco como sai na etiquetadora.
 			</p>
+		</section>
+
+		<section class="card stack">
+			<h2>Etiquetadora</h2>
+			{#if !supported}
+				<p class="muted small" style="margin:0">
+					Este browser não consegue usar o Bluetooth. Abre o Marmita no <strong>Chrome</strong> (Android ou computador),
+					por HTTPS. Entretanto, podes descarregar o PNG e abri-lo na app da Marklife.
+				</p>
+			{:else}
+				{#if etiquetadora.error}<p class="alert" role="alert" style="margin:0">{etiquetadora.error}</p>{/if}
+				{#if printed}<p class="alert ok" role="status" style="margin:0">{printed}</p>{/if}
+				{#if etiquetadora.name}
+					<div class="row printer">
+						<span class="dot" class:on={etiquetadora.connected} aria-hidden="true"></span>
+						<span class="grow">
+							<strong>{etiquetadora.name}</strong>
+							<span class="muted small">{etiquetadora.connected ? 'ligada' : 'desligada (volta a ligar ao imprimir)'}</span>
+						</span>
+						<button class="btn small ghost" onclick={desligar} disabled={etiquetadora.printing}>Esquecer</button>
+					</div>
+					<div class="grid-2">
+						<label class="field">
+							<span>Densidade</span>
+							<select bind:value={density}>
+								{#each DENSITIES as d (d.value)}
+									<option value={d.value}>{d.label}</option>
+								{/each}
+							</select>
+						</label>
+						<label class="toggle flip">
+							<input type="checkbox" bind:checked={flip} />
+							<span><strong>Rodar 180°</strong><span class="muted small">Se o texto sair ao contrário.</span></span>
+						</label>
+					</div>
+					<button class="btn primary block" onclick={printLabel} disabled={!png || etiquetadora.printing}>
+						{#if etiquetadora.printing}
+							A imprimir… {pct}%
+						{:else}
+							Imprimir {copiesN === 1 ? 'etiqueta' : `${copiesN} etiquetas`}
+						{/if}
+					</button>
+					{#if etiquetadora.printing}
+						<progress max="100" value={pct} aria-label="Progresso da impressão"></progress>
+					{/if}
+				{:else}
+					<p class="muted small" style="margin:0">
+						Liga a etiquetadora Marklife P15 (ou compatível) e fecha a app da Marklife: só aceita uma ligação de cada
+						vez. A ligação mantém-se enquanto a app estiver aberta.
+					</p>
+					<button class="btn primary block" onclick={ligar} disabled={etiquetadora.connecting}>
+						{etiquetadora.connecting ? 'A ligar…' : 'Ligar à etiquetadora'}
+					</button>
+				{/if}
+			{/if}
 		</section>
 
 		<section class="card stack">
@@ -143,18 +219,18 @@
 				</label>
 			</div>
 			<label class="field">
-				<span>Cópias <span class="hint">(ao imprimir em papel)</span></span>
+				<span>Cópias</span>
 				<input type="number" min="1" max="50" bind:value={copies} />
 			</label>
 		</section>
 
 		<div class="row actions">
 			<button class="btn" onclick={download} disabled={!png}>Descarregar PNG</button>
-			<button class="btn primary" onclick={() => window.print()} disabled={!png}>Imprimir</button>
+			<button class="btn" onclick={() => window.print()} disabled={!png}>Imprimir em papel</button>
 		</div>
 		<p class="muted small" style="margin:0">
-			O PNG pode ser aberto na app da etiquetadora. "Imprimir" serve para uma impressora normal: as etiquetas saem ao
-			tamanho real, com contorno para recortar.
+			O PNG pode ser aberto na app da Marklife. "Imprimir em papel" serve para uma impressora normal: as etiquetas saem
+			ao tamanho real, com contorno para recortar.
 		</p>
 	</div>
 
@@ -208,6 +284,40 @@
 	.toggle > span {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.printer {
+		align-items: center;
+		gap: 10px;
+		flex-wrap: nowrap;
+	}
+
+	.printer .grow {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.dot {
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		background: var(--text-muted);
+		flex: none;
+	}
+
+	.dot.on {
+		background: var(--ok);
+	}
+
+	.flip {
+		align-self: end;
+	}
+
+	progress {
+		width: 100%;
+		accent-color: var(--accent);
 	}
 
 	.actions {

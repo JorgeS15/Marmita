@@ -13,10 +13,10 @@ Esforço: **P** = pequeno (umas horas) · **M** = médio (1–2 dias) · **G** =
 | 1.1 | **Gerir pessoas da casa**: repor a palavra-passe de outra pessoa e remover/desativar uma conta | Hoje, se alguém se esquece da palavra-passe, só mexendo na base de dados. Não há forma de remover uma conta. | P |
 | 1.2 | **"Deitado fora"** como estado de um item (estragou-se, passou o prazo) | Hoje só se pode baixar a quantidade ou apagar: perde-se a informação de desperdício, que alimenta as estatísticas (3.2). | P |
 | 1.3 | **Copiar a semana** inteira (ou um dia) para outra semana | Semanas parecidas repetem-se; hoje duplica-se refeição a refeição. | P |
-| 1.4 | ~~**Etiqueta para imprimir** num item~~: feito na v1.14.0 (pré-visualização, PNG, impressão em papel). Segue-se a impressão direta na P15, em 1.7 | Identificar caixas no congelador. | ✓ |
+| 1.4 | ~~**Etiqueta para imprimir** num item~~: feito na v1.14.0 (pré-visualização, PNG, impressão em papel e na P15). | Identificar caixas no congelador. | ✓ |
 | 1.5 | **Release automática**: criar a tag e a Release do GitHub quando a versão do `package.json` muda no `main` | Hoje a tag é manual; o CHANGELOG já tem tudo o que as notas precisam. | P |
 | 1.6 | **Pasta `data` com permissões erradas**: mensagem clara no arranque em vez de erro `EACCES` | É o erro mais comum de quem instala com Docker. | P |
-| 1.7 | **Imprimir direto na etiquetadora Marklife P15** por Bluetooth (Web Bluetooth, no Chrome para Android e no computador). O protocolo L11 é escrito no próprio projeto, a partir do [thermoprint](https://github.com/tomLadder/thermoprint) (MIT), sem dependências | Imprimir a etiqueta logo a partir do telemóvel, sem passar pela app da Marklife. | M |
+| 1.7 | ~~**Imprimir direto na etiquetadora Marklife P15** por Bluetooth~~: feito na v1.14.0 (Web Bluetooth, protocolo L11 sem dependências). | Imprimir a etiqueta logo a partir do telemóvel. | ✓ |
 | 1.8 | **Imprimir pelo Home Assistant** (`marklife.print` do [hass-marklife](https://github.com/eigger/hass-marklife), através do proxy Bluetooth ESPHome). Nas definições ficam o URL e o token do HA | Funciona em qualquer dispositivo e o HA trata da ligação à impressora. | M |
 | 1.9 | **Imprimir várias etiquetas de uma vez** ao confirmar uma preparação (uma por caixa, já separadas por local) e ao mover doses para o congelador | É quando as caixas vão para o frigorífico ou para o congelador. | P |
 

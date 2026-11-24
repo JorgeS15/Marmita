@@ -10,6 +10,9 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e 
   - Nome, data de congelação/entrada ("Cong.", "Feito" ou "Desde", conforme o local), "consumir até" e doses por etiqueta. Cada parte pode ser desligada e o nome pode ser editado só para a etiqueta.
   - Tamanhos dos rolos da P15/P12: 40×12, 30×15, 40×14, 50×15 e 30×12 mm. A pré-visualização tem o tamanho real em pontos (8 por mm, 96 na largura) e é a preto e branco, como sai na etiquetadora.
   - **Descarregar PNG**, para abrir na app da etiquetadora, e **Imprimir** numa impressora normal, com várias cópias ao tamanho real e contorno para recortar.
+  - **Imprimir diretamente na etiquetadora Marklife P15** (ou compatível: P12, P7, LP15…) por Bluetooth, a partir do Chrome em Android ou no computador (precisa de HTTPS). Basta ligar a etiquetadora uma vez: a ligação mantém-se ao passar de item para item. Se a etiquetadora se desligar entretanto, a app volta a ligar-se ao imprimir.
+    - Escolhe-se o número de cópias, a densidade (clara, normal ou escura) e "Rodar 180°", para quando o texto sai ao contrário. Mostra o progresso da impressão e avisa se a etiquetadora não tiver papel, tiver a tampa aberta ou estiver demasiado quente.
+    - O protocolo (L11) está escrito no próprio projeto, a partir do thermoprint e do hass-marklife (MIT), e não acrescenta dependências.
   - O tamanho e as opções ficam guardados no dispositivo.
 
 ## [1.13.1] - 2026-11-20
