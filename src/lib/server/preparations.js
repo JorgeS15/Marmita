@@ -131,7 +131,7 @@ const LOCATION_ORDER = ['frigorifico', 'despensa', 'congelador'];
 /**
  * @typedef {{ location: string, units: number, best_before: string | null }} PrepOutputInput
  * @typedef {{ id: number, prep_id: number, item_id: number | null, units: number, created: number,
- *   name: string | null, location: string | null }} PrepOutput
+ *   name: string | null, location: string | null, stored_on: string | null, best_before: string | null }} PrepOutput
  */
 
 /** Itens que receberam doses das preparações (um por local). @param {number[]} prepIds @returns {PrepOutput[]} */
@@ -140,7 +140,7 @@ export function listOutputs(prepIds) {
 	return /** @type {any} */ (
 		db()
 			.prepare(
-				`SELECT o.*, i.name, i.location FROM prep_outputs o LEFT JOIN items i ON i.id = o.item_id
+				`SELECT o.*, i.name, i.location, i.stored_on, i.best_before FROM prep_outputs o LEFT JOIN items i ON i.id = o.item_id
 				 WHERE o.prep_id IN (${prepIds.map(() => '?').join(',')}) ORDER BY o.id`
 			)
 			.all(...prepIds)

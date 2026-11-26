@@ -48,9 +48,23 @@ export const actions = {
 					location: oneOf(form, 'location', LOCATIONS.map((l) => l.value), { label: 'Local' }),
 					best_before: date(form, 'best_before', { label: 'Consumir até' })
 				};
+				const src = getItem(id);
 				const target = moveDoses(id, d, locals.user.id);
-				if (target == null) error(404, 'Item não encontrado.');
+				if (target == null || !src) error(404, 'Item não encontrado.');
 				return {
+					// Etiquetas das caixas que mudaram de local, com as datas dessas caixas (não as do
+					// item a que se juntaram): ao ir para o congelador, a data de congelação é hoje.
+					labelGroup: {
+						key: `m${target}-${Date.now()}`,
+						units: d.units,
+						item: {
+							id: target,
+							name: src.name,
+							location: d.location,
+							stored_on: d.location === 'congelador' ? today() : src.stored_on,
+							best_before: d.best_before
+						}
+					},
 					moved: true,
 					ok: `${String(d.units).replace('.', ',')} ${d.units === 1 ? 'dose passou' : 'doses passaram'} para o ${labelOf(LOCATIONS, d.location).toLowerCase()}.`,
 					target

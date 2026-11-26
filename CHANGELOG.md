@@ -3,6 +3,30 @@
 Todas as alterações relevantes deste projeto ficam registadas aqui.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-PT/).
 
+## [1.14.0] - 2026-11-24
+
+### Added
+- **Etiquetas** para os itens do inventário (botão "🏷 Etiqueta" na página do item). Primeira fase da impressão de etiquetas para a etiquetadora Marklife P15.
+  - Nome, data de congelação/entrada ("Cong.", "Feito" ou "Desde", conforme o local), "consumir até" e doses por etiqueta. Cada parte pode ser desligada e o nome pode ser editado só para a etiqueta.
+  - Tamanhos dos rolos da P15/P12: 40×12, 30×15, 40×14, 50×15 e 30×12 mm. A pré-visualização tem o tamanho real em pontos (8 por mm, 96 na largura) e é a preto e branco, como sai na etiquetadora.
+  - **Descarregar PNG**, para abrir na app da etiquetadora, e **Imprimir** numa impressora normal, com várias cópias ao tamanho real e contorno para recortar.
+  - **Imprimir diretamente na etiquetadora Marklife P15** (ou compatível: P12, P7, LP15…) por Bluetooth, a partir do Chrome em Android ou no computador (precisa de HTTPS). Basta ligar a etiquetadora uma vez: a ligação mantém-se ao passar de item para item. Se a etiquetadora se desligar entretanto, a app volta a ligar-se ao imprimir.
+    - Escolhe-se o número de cópias, a densidade (clara, normal ou escura) e "Rodar 180°", para quando o texto sai ao contrário. Mostra o progresso da impressão e avisa se a etiquetadora não tiver papel, tiver a tampa aberta ou estiver demasiado quente.
+    - O protocolo (L11) está escrito no próprio projeto, a partir do thermoprint e do hass-marklife (MIT), e não acrescenta dependências.
+  - **Imprimir através do Home Assistant**, a partir de qualquer dispositivo ou browser, com a integração [Marklife](https://github.com/eigger/hass-marklife) (o HA liga-se à etiquetadora por Bluetooth ou por um proxy ESPHome).
+    - Configura-se com `HA_URL` e `HA_TOKEN`. A etiquetadora escolhe-se em **Definições → Etiquetadora**, para toda a casa: o Marmita pergunta ao HA quais existem.
+    - A etiqueta vai como imagem (a mesma da pré-visualização). O token fica só no servidor.
+    - Com o HA configurado e Bluetooth disponível, a página da etiqueta deixa escolher entre "Home Assistant" e "Bluetooth". A escolha fica guardada no dispositivo.
+    - O número de cópias passa a ir até 20.
+  - **Etiquetas para as caixas ao confirmar uma preparação**: o painel fica aberto e mostra as etiquetas, uma por dose, já separadas por local (ex.: 3 "Feito …" para o frigorífico e 2 "Cong. …" para o congelador), com o "consumir até" de cada local. O número de etiquetas pode ser mudado; com meias doses, sai uma etiqueta para tudo. Continua disponível no painel de uma preparação já feita.
+  - **Etiquetas ao mover doses**: depois de mover doses para outro local (ex.: congelar parte), aparecem logo as etiquetas para essas caixas.
+  - O tamanho, as opções e a escolha da etiquetadora são os mesmos em todo o lado (guardados no dispositivo).
+  - **Etiquetas de vários itens a partir do inventário**: o botão "🏷 Etiquetas" na lista deixa escolher itens (ou "Todos os visíveis", com os filtros ativos, ex.: Congelador) e imprimir as etiquetas de todos, uma por dose. Serve para etiquetar o que já está guardado.
+  - **Bateria e estado da etiquetadora** junto ao nome: por Bluetooth, a bateria é lida ao ligar e depois de imprimir; pelo Home Assistant, vêm dos sensores da integração (bateria, sem papel, tampa aberta, indisponível).
+  - **Etiqueta livre** (`/etiquetas`, ligação no fundo do inventário): texto à escolha para frascos e sacos abertos, sobras ou o que não está no inventário, com atalhos ("Aberto hoje", "Até +1 semana"…).
+  - **Código QR** opcional na etiqueta, à esquerda do texto: ao ler com a câmara do telemóvel, abre o item no Marmita (endereço curto `/i/<id>`, que pede sessão como as outras páginas). Usa o `ORIGIN`, se estiver definido, para funcionar fora de casa. O gerador de QR está escrito no próprio projeto, sem dependências.
+  - O tamanho e as opções ficam guardados no dispositivo.
+
 ## [1.13.1] - 2026-11-20
 
 ### Changed

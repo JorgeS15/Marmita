@@ -158,6 +158,11 @@ describe('confirmar preparações', () => {
 			['frigorifico', 3, 1],
 			['congelador', 2, 1]
 		]);
+		// dados para as etiquetas das caixas
+		expect(outs.map((o) => [o.name, o.stored_on, o.best_before])).toEqual([
+			['Caril de grão', '2026-10-13', '2026-11-05'],
+			['Caril de grão', '2026-10-13', null]
+		]);
 		const [fridge, freezer] = outs.map((o) => /** @type {number} */ (o.item_id));
 		expect(db().prepare('SELECT best_before FROM items WHERE id = ?').get(fridge)).toEqual({ best_before: '2026-11-05' });
 		// as 3 primeiras (almoço e jantar de dia 3, almoço de dia 4) ficam no frigorífico; a de dia 10 no congelador

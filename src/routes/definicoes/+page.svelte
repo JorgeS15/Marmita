@@ -78,6 +78,49 @@
 			</form>
 		</section>
 
+		<section class="card stack" aria-labelledby="etiquetas">
+			<h2 id="etiquetas">Etiquetadora</h2>
+			{#if msg('labels')?.error}<p class="alert" role="alert">{msg('labels')?.error}</p>{/if}
+			{#if msg('labels')?.ok}<p class="alert ok" role="status">{msg('labels')?.ok}</p>{/if}
+			{#if !data.labels.ha}
+				<p class="muted small" style="margin:0">
+					As etiquetas imprimem por Bluetooth a partir do Chrome. Para imprimir através do Home Assistant (de qualquer
+					dispositivo), define <code>HA_URL</code> e <code>HA_TOKEN</code> no servidor e instala a integração
+					<a href="https://github.com/eigger/hass-marklife" target="_blank" rel="noreferrer">Marklife</a> no HA.
+				</p>
+			{:else}
+				<p class="muted small" style="margin:0">
+					Etiquetadora Marklife ligada ao Home Assistant, para imprimir a partir de qualquer dispositivo. Aplica-se a
+					toda a casa.
+				</p>
+				{#await data.labels.printers}
+					<p class="muted small" style="margin:0">A perguntar ao Home Assistant…</p>
+				{:then res}
+					{#if res?.error}
+						<p class="alert" role="alert" style="margin:0">{res.error}</p>
+					{:else if !res?.list.length}
+						<p class="alert warn" style="margin:0">
+							O Home Assistant não tem nenhuma etiquetadora Marklife. Instala a integração (HACS → Marklife) e confirma
+							que a P15 aparece em Dispositivos e serviços.
+						</p>
+					{:else}
+						<form method="POST" action="?/labelPrinter" use:enhance={() => async ({ update }) => update({ reset: false })} class="stack">
+							<label class="field">
+								<span>Etiquetadora no Home Assistant</span>
+								<select name="device">
+									<option value="">— Nenhuma (só Bluetooth) —</option>
+									{#each res.list as p (p.id)}
+										<option value={p.id} selected={data.labels.printer?.id === p.id}>{p.name}</option>
+									{/each}
+								</select>
+							</label>
+							<button class="btn">Guardar</button>
+						</form>
+					{/if}
+				{/await}
+			{/if}
+		</section>
+
 		<PushSettings
 			publicKey={data.push.publicKey}
 			devices={data.push.devices}

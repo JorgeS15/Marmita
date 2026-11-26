@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import ItemForm from '$lib/components/ItemForm.svelte';
 	import StockBadge from '$lib/components/StockBadge.svelte';
+	import LabelBatch from '$lib/components/LabelBatch.svelte';
 	import { LOCATIONS, doses, fmtNum, labelOf, slotLabel } from '$lib/constants.js';
 	import { addDays, dayMonth, weekdayShort } from '$lib/dates.js';
 
@@ -25,6 +26,7 @@
 	<header class="page-header">
 		<a class="btn icon ghost" href={data.back} aria-label="Voltar ao inventário">‹</a>
 		<h1>{item.name} <span class="badge">{labelOf(LOCATIONS, item.location)}</span></h1>
+		<a class="btn small label-btn" href="/inventario/{item.id}/etiqueta{voltarQs}">🏷 Etiqueta</a>
 	</header>
 
 	<div class="stack">
@@ -41,6 +43,17 @@
 				{form.ok}
 				{#if form.target}<a href="/inventario/{form.target}{voltarQs}">Ver lá</a>{/if}
 			</p>
+		{/if}
+		{#if form?.labelGroup && data.labels}
+			{#key form.labelGroup.key}
+				<LabelBatch
+					groups={[form.labelGroup]}
+					ha={data.labels.ha}
+					haConfigured={data.labels.haConfigured}
+					origin={data.labels.origin}
+					open
+				/>
+			{/key}
 		{/if}
 
 		<section class="card stack">
@@ -147,6 +160,11 @@
 </main>
 
 <style>
+	.label-btn {
+		margin-left: auto;
+		flex: none;
+	}
+
 	.entries {
 		list-style: none;
 		margin: 0;

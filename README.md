@@ -14,6 +14,7 @@ A interface está em português de Portugal.
   - Aceita meias doses (ex.: `0,5`).
   - Permite **mover doses** de um local para outro, por exemplo para congelar parte do que está no frigorífico ou para descongelar uma dose.
   - A pesquisa e os filtros mantêm-se ao abrir um item e voltar à lista.
+  - **Etiquetas** para as caixas: nome, data de congelação, "consumir até" e doses, nos tamanhos da etiquetadora Marklife P15. Imprime diretamente na etiquetadora por **Bluetooth** (Chrome em Android ou no computador, por HTTPS) ou através do **Home Assistant**, a partir de qualquer dispositivo (ver [Etiquetas pelo Home Assistant](#etiquetas-pelo-home-assistant)). Ao confirmar uma preparação ou mover doses, aparecem logo as etiquetas para as caixas (uma por dose, por local). Na lista do inventário dá para escolher vários itens (ex.: todo o congelador) e imprimir as etiquetas de uma vez. Há também uma **etiqueta livre**, com texto à escolha (ex.: "Aberto 26/11" num frasco). Opcionalmente, a etiqueta leva um código QR que abre o item ao ser lido com o telemóvel. Também dá para descarregar em PNG ou imprimir numa impressora normal.
 - **Semana**: de domingo a sábado ou de segunda a domingo (definição da casa). Tem pequeno-almoço, lanche da manhã (opcional), almoço, lanche da tarde e jantar.
   - Cada refeição pode ter várias entradas, vindas do inventário ou em texto livre.
   - Cada entrada é atribuída a uma pessoa da casa ou a todas, e cada pessoa tem a sua cor.
@@ -78,8 +79,19 @@ No primeiro acesso aparece o ecrã **Setup** para criar a primeira conta. As out
 | `TZ` | `Europe/Lisbon` | Fuso horário usado para "hoje", para "por confirmar" e para as horas das notificações. |
 | `BACKUP_KEEP` | `14` | Número de cópias diárias da base de dados guardadas em `data/backups/` (`0` desliga). |
 | `VAPID_SUBJECT` | `ORIGIN` (ou `mailto:marmita@example.com`) | Opcional. Contacto enviado aos serviços de push (Google, Apple, Mozilla). |
+| `HA_URL` | — | Opcional. Endereço do Home Assistant visto pelo servidor do Marmita (ex.: `http://homeassistant.local:8123`), para imprimir etiquetas através do HA. |
+| `HA_TOKEN` | — | Opcional. Token de acesso de longa duração do HA (Perfil → Segurança). Fica só no servidor: não vai para o browser, para as cópias de segurança nem para o export. |
 
 A proteção CSRF aceita pedidos cuja origem coincide com o host do pedido (`Host` ou `X-Forwarded-Host`), com o `ORIGIN` ou com o `ALLOWED_ORIGINS`. Pedidos de outros sites são rejeitados com 403. Por isso a mesma instalação funciona em `https://marmita.exemplo.pt`, `http://localhost:4004` e `http://192.168.1.x:4004`.
+
+### Etiquetas pelo Home Assistant
+
+1. No HA, instala a integração [Marklife](https://github.com/eigger/hass-marklife) (HACS → Marklife) e confirma que a etiquetadora aparece em **Definições → Dispositivos e serviços**, por um adaptador Bluetooth ou por um proxy Bluetooth ESPHome.
+2. Cria um token de acesso de longa duração no HA (**Perfil → Segurança**).
+3. Define `HA_URL` e `HA_TOKEN` no `docker-compose.yml` e reinicia o Marmita. O container tem de conseguir chegar ao HA.
+4. No Marmita, em **Definições → Etiquetadora**, escolhe a etiquetadora.
+
+A etiqueta é desenhada no browser e enviada ao HA como imagem, por isso sai igual à pré-visualização e à impressão por Bluetooth direto.
 
 ### Definições da casa
 
@@ -220,6 +232,7 @@ src/
 │  ├─ constants.js          # categorias, locais, refeições do dia, cores, doses
 │  ├─ stock.js              # indicadores de antiguidade/validade
 │  ├─ inventory.js          # filtros da lista do inventário (voltar à lista)
+│  ├─ labels/               # etiquetas: conteúdo (model.js), desenho (render.js), P15 por Bluetooth (p15.js), impressão e preferências (printing.svelte.js), código QR (qr.js)
 │  ├─ components/           # BottomSheet, ItemPicker, PrepEditor, PersonPicker, DayChips, PushSettings, …
 │  └─ server/
 │     ├─ db.js              # node:sqlite + migrações (PRAGMA user_version)
@@ -232,10 +245,13 @@ src/
 │     ├─ settings.js        # definições da casa
 │     ├─ notifications.js   # notificações e agendamento (a cada minuto)
 │     ├─ webpush.js         # Web Push sem dependências (RFC 8291 + VAPID)
+│     ├─ homeassistant.js   # etiquetas pelo Home Assistant (marklife.print)
 │     └─ backup.js          # cópias diárias (VACUUM INTO)
 └─ routes/
    ├─ +page.*               # Semana (?w=AAAA-MM-DD; painéis no URL)
-   ├─ inventario/           # lista, novo, [id]
+   ├─ inventario/           # lista, novo, [id], [id]/etiqueta
+   ├─ etiquetas/            # etiqueta livre; ha/ (imprimir e estado pelo Home Assistant)
+   ├─ i/[id]                # endereço curto do código QR → /inventario/[id]
    ├─ ideias/               # bloco de notas (lista, nova, [id])
    ├─ definicoes/           # perfil, refeições da casa, notificações, palavra-passe, pessoas, dados
    ├─ login/ setup/ logout/

@@ -13,9 +13,12 @@ Esforço: **P** = pequeno (umas horas) · **M** = médio (1–2 dias) · **G** =
 | 1.1 | **Gerir pessoas da casa**: repor a palavra-passe de outra pessoa e remover/desativar uma conta | Hoje, se alguém se esquece da palavra-passe, só mexendo na base de dados. Não há forma de remover uma conta. | P |
 | 1.2 | **"Deitado fora"** como estado de um item (estragou-se, passou o prazo) | Hoje só se pode baixar a quantidade ou apagar: perde-se a informação de desperdício, que alimenta as estatísticas (3.2). | P |
 | 1.3 | **Copiar a semana** inteira (ou um dia) para outra semana | Semanas parecidas repetem-se; hoje duplica-se refeição a refeição. | P |
-| 1.4 | **Etiqueta para imprimir** num item (nome, data de congelação, doses, consumir até) | Identificar caixas no congelador. Página pronta a imprimir, sem dependências. | P |
+| 1.4 | ~~**Etiqueta para imprimir** num item~~: feito na v1.14.0 (pré-visualização, PNG, impressão em papel e na P15). | Identificar caixas no congelador. | ✓ |
 | 1.5 | **Release automática**: criar a tag e a Release do GitHub quando a versão do `package.json` muda no `main` | Hoje a tag é manual; o CHANGELOG já tem tudo o que as notas precisam. | P |
 | 1.6 | **Pasta `data` com permissões erradas**: mensagem clara no arranque em vez de erro `EACCES` | É o erro mais comum de quem instala com Docker. | P |
+| 1.7 | ~~**Imprimir direto na etiquetadora Marklife P15** por Bluetooth~~: feito na v1.14.0 (Web Bluetooth, protocolo L11 sem dependências). | Imprimir a etiqueta logo a partir do telemóvel. | ✓ |
+| 1.8 | ~~**Imprimir pelo Home Assistant**~~: feito na v1.14.0 (`marklife.print` com a imagem da etiqueta; `HA_URL` e `HA_TOKEN`; etiquetadora escolhida em Definições). | Funciona em qualquer dispositivo. | ✓ |
+| 1.9 | ~~**Imprimir várias etiquetas de uma vez**~~: feito na v1.14.0 (ao confirmar uma preparação, por local, e ao mover doses). | É quando as caixas vão para o frigorífico ou para o congelador. | ✓ |
 
 ## 2. A seguir (valor alto, esforço médio)
 
@@ -39,7 +42,7 @@ Esforço: **P** = pequeno (umas horas) · **M** = médio (1–2 dias) · **G** =
 | 3.5 | **Inglês** (i18n), útil agora que o projeto é público | M |
 | 3.6 | **Uso offline com escrita**: marcar consumido/não consumido sem rede e sincronizar depois | G |
 | 3.7 | **Histórico de alterações** (quem mudou o quê) com "desfazer" | M |
-| 3.8 | **Código de barras / QR** nas etiquetas para abrir o item ao ler com o telemóvel | P (depois de 1.4) |
+| 3.8 | ~~**Código QR** nas etiquetas~~: feito na v1.14.0 (abre o item ao ler com o telemóvel). | ✓ |
 
 ---
 

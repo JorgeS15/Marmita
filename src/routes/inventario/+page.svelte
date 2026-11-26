@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import StockBadge from '$lib/components/StockBadge.svelte';
+	import LabelBatch from '$lib/components/LabelBatch.svelte';
 	import { CATEGORIES, LOCATIONS, labelOf, normalize } from '$lib/constants.js';
 	import { itemFlags } from '$lib/stock.js';
 
@@ -65,6 +66,29 @@
 		}
 	});
 
+	// ——— Etiquetas de vários itens de uma vez ———
+	let selecting = $state(false);
+	/** Itens escolhidos (id → true). @type {Record<number, boolean>} */
+	let selected = $state({});
+	// Só os itens escolhidos que estão visíveis com os filtros atuais.
+	const labelGroups = $derived(
+		filtered
+			.filter((i) => selected[i.id] && i.quantity > 0)
+			.map((i) => ({
+				key: `i${i.id}`,
+				label: i.name,
+				units: i.quantity,
+				item: { id: i.id, name: i.name, location: i.location, stored_on: i.stored_on, best_before: i.best_before }
+			}))
+	);
+	const visibleWithStock = $derived(available.filter((i) => i.quantity > 0));
+	const allVisibleSelected = $derived(visibleWithStock.length > 0 && visibleWithStock.every((i) => selected[i.id]));
+
+	function toggleAllVisible() {
+		const on = !allVisibleSelected;
+		for (const i of visibleWithStock) selected[i.id] = on;
+	}
+
 	/** Atualiza sem fazer scroll nem limpar. */
 	const quiet = () => async ({ update }) => update({ reset: false, invalidateAll: true });
 </script>
@@ -91,7 +115,12 @@
 			{/if}
 		</a>
 		<div class="actions">
-			{#if isSoldOut}
+			{#if selecting && !isSoldOut}
+				<label class="pick">
+					<input type="checkbox" bind:checked={selected[item.id]} disabled={item.quantity <= 0} />
+					<span class="visually-hidden">Etiqueta para {item.name}</span>
+				</label>
+			{:else if isSoldOut}
 				<form method="POST" action="?/adjust" use:enhance={quiet}>
 					<input type="hidden" name="id" value={item.id} />
 					<input type="hidden" name="delta" value="1" />
@@ -120,6 +149,11 @@
 <main class="page narrow">
 	<header class="page-header">
 		<h1>Inventário</h1>
+		{#if data.items.length}
+			<button type="button" class="btn" aria-pressed={selecting} onclick={() => (selecting = !selecting)}>
+				{selecting ? 'Concluir' : '🏷 Etiquetas'}
+			</button>
+		{/if}
 		<a class="btn primary" href={newHref}>+ Adicionar</a>
 	</header>
 
@@ -156,6 +190,22 @@
 			<a class="btn primary" href="/inventario/novo">Adicionar o primeiro item</a>
 		</div>
 	{:else}
+		{#if selecting}
+			<div class="card stack select-bar">
+				<div class="row" style="justify-content:space-between">
+					<span class="muted small">
+						{labelGroups.length
+							? `${labelGroups.length} ${labelGroups.length === 1 ? 'item escolhido' : 'itens escolhidos'}`
+							: 'Escolhe os itens para imprimir as etiquetas.'}
+					</span>
+					{#if labelGroups.length}<a class="btn small" href="#etiquetas-lote">Imprimir ↓</a>{/if}
+					<button type="button" class="btn small" onclick={toggleAllVisible} disabled={!visibleWithStock.length}>
+						{allVisibleSelected ? 'Nenhum' : 'Todos os visíveis'}
+					</button>
+				</div>
+			</div>
+		{/if}
+
 		{#if available.length}
 			<ul class="list">
 				{#each available as item (item.id)}{@render card(item, false)}{/each}
@@ -163,6 +213,19 @@
 		{:else}
 			<p class="muted">Nenhum item corresponde aos filtros.</p>
 		{/if}
+
+		<div id="etiquetas-lote" class="batch-wrap">
+			{#if selecting && labelGroups.length && data.labels}
+				<LabelBatch
+					groups={labelGroups}
+					ha={data.labels.ha}
+					haConfigured={data.labels.haConfigured}
+					origin={data.labels.origin}
+					title="Etiquetas dos itens escolhidos"
+					open
+				/>
+			{/if}
+		</div>
 
 		{#if soldOut.length}
 			<h2 class="section">Esgotados</h2>
@@ -173,6 +236,7 @@
 	{/if}
 
 	<div class="archived">
+		<a class="btn ghost small" href="/etiquetas">🏷 Etiqueta livre</a>
 		{#if data.showArchived}
 			<h2 class="section">Arquivados</h2>
 			{#if data.archived.length}
@@ -250,6 +314,38 @@
 		flex-direction: column;
 		gap: 6px;
 		flex: none;
+	}
+
+	.pick {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 44px;
+		min-height: 44px;
+		cursor: pointer;
+	}
+
+	.pick input {
+		width: 24px;
+		height: 24px;
+		accent-color: var(--accent);
+	}
+
+	.select-bar {
+		margin-bottom: 10px;
+		position: sticky;
+		top: 8px;
+		z-index: 2;
+	}
+
+	.select-bar .row {
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.batch-wrap {
+		margin-top: 12px;
+		scroll-margin-top: 80px;
 	}
 
 	.actions .btn.icon {
