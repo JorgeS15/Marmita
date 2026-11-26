@@ -56,9 +56,10 @@ const STORED_PREFIX = /** @type {Record<string, string>} */ ({
  * @typedef {{ showStored?: boolean, showBestBefore?: boolean, showDoses?: boolean, doses?: number, qr?: string }} LabelOptions
  * @typedef {{ title: string, lines: string[], qr?: string }} LabelContent
  *   `qr`: texto do código QR (ex.: o endereço do item), à esquerda da etiqueta.
- * @typedef {{ key: string, units: number,
+ * @typedef {{ key: string, units: number, label?: string,
  *   item: { id?: number | null, name: string, location: string, stored_on?: string | null, best_before?: string | null } }} LabelGroup
- *   Caixas iguais (mesmo item/local), para imprimir várias etiquetas de uma vez.
+ *   Caixas iguais (mesmo item/local), para imprimir várias etiquetas de uma vez. `label`: nome a mostrar
+ *   na lista (por omissão, o local).
  */
 
 /**

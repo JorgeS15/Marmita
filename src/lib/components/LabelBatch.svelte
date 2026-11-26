@@ -17,8 +17,8 @@
 		saveLabelPrefs
 	} from '$lib/labels/printing.svelte.js';
 
-	/** @type {{ groups: import('$lib/labels/model.js').LabelGroup[], ha: { id: string, name: string } | null, haConfigured?: boolean, origin?: string | null, open?: boolean }} */
-	let { groups, ha, haConfigured = false, origin = null, open = false } = $props();
+	/** @type {{ groups: import('$lib/labels/model.js').LabelGroup[], ha: { id: string, name: string } | null, haConfigured?: boolean, origin?: string | null, open?: boolean, title?: string }} */
+	let { groups, ha, haConfigured = false, origin = null, open = false, title = 'Etiquetas para as caixas' } = $props();
 
 	/** Uma etiqueta por dose (doses inteiras); com meias doses, uma etiqueta para tudo. @param {number} units */
 	const defaultCount = (units) => (Number.isInteger(units) ? Math.min(units, 20) : 1);
@@ -71,20 +71,21 @@
 </script>
 
 <details class="card stack batch" {open}>
-	<summary>🏷 Etiquetas para as caixas</summary>
+	<summary>🏷 {title}</summary>
 	<div class="stack">
 		<ul class="groups">
 			{#each groups as g (g.key)}
 				<li>
 					<canvas class="thumb" use:preview={{ content: contentOf(g), size: labelPrefs.size }} aria-hidden="true"></canvas>
 					<span class="grow">
-						<strong>{labelOf(LOCATIONS, g.item.location)}</strong>
+						<strong>{g.label ?? labelOf(LOCATIONS, g.item.location)}</strong>
 						<span class="muted small">
+							{#if g.label}{labelOf(LOCATIONS, g.item.location)} ·{/if}
 							{fmtNum(g.units)}&nbsp;{g.units <= 1 ? 'dose' : 'doses'}{countOf(g) ? ` · ${fmtNum(dosesEach(g))} por etiqueta` : ''}
 						</span>
 					</span>
 					<label class="count">
-						<span class="visually-hidden">Etiquetas para {labelOf(LOCATIONS, g.item.location)}</span>
+						<span class="visually-hidden">Etiquetas para {g.label ?? labelOf(LOCATIONS, g.item.location)}</span>
 						<input type="number" min="0" max="20" bind:value={counts[g.key]} />
 					</label>
 				</li>
