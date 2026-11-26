@@ -5,7 +5,7 @@
 import { DEFAULT_LABEL_SIZE, LABEL_SIZES, labelDots } from './model.js';
 import { drawLabel } from './render.js';
 import { DENSITIES, bluetoothSupported, rasterFromRGBA } from './p15.js';
-import { etiquetadora, imprimir } from './bluetooth.svelte.js';
+import { etiquetadora, imprimir, lerBateria } from './bluetooth.svelte.js';
 
 const PREFS_KEY = 'marmita:etiqueta';
 
@@ -154,6 +154,8 @@ export async function printLabels(jobs, ha) {
 			}
 		}
 		impressao.done = total === 1 ? 'Etiqueta impressa.' : `${total} etiquetas impressas.`;
+		// Só no fim do lote: a pergunta da bateria não se pode cruzar com um envio.
+		if (!useHa) setTimeout(lerBateria, 0);
 		return true;
 	} catch (err) {
 		const msg = /** @type {Error} */ (err).message;

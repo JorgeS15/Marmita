@@ -291,30 +291,44 @@ export class P15Printer {
 		}
 	}
 
-	/** Espera pela confirmação de que a etiqueta saiu (ou por um erro). */
+	/**
+	 * Espera pela confirmação de que a etiqueta saiu (ou por um erro).
+	 * `cancel()` desfaz a espera (ex.: o envio falhou), para não deixar um
+	 * temporizador antigo a mexer numa impressão seguinte.
+	 */
 	waitResult() {
-		return new Promise((resolve, reject) => {
+		/** @type {() => void} */
+		let cancel = () => {};
+		const promise = new Promise((resolve, reject) => {
+			let finished = false;
 			const done = (/** @type {() => void} */ fn) => {
+				if (finished) return;
+				finished = true;
 				clearTimeout(timer);
-				this.waiter = null;
-				this.onDisconnect = prevDisconnect;
+				if (this.waiter === waiter) this.waiter = null;
+				if (this.onDisconnect === onDisconnect) this.onDisconnect = prevDisconnect;
 				fn();
 			};
+			cancel = () => done(() => resolve(undefined));
 			const timer = setTimeout(
 				() => done(() => reject(new Error('A etiquetadora não confirmou a impressão.'))),
 				RESULT_TIMEOUT_MS
 			);
 			// Se desligar depois de receber tudo, conta como impressa (desliga-se sozinha).
 			const prevDisconnect = this.onDisconnect;
-			this.onDisconnect = () => {
+			const onDisconnect = () => {
 				prevDisconnect();
 				done(() => resolve(undefined));
 			};
-			this.waiter = (r) => {
+			/** @param {NonNullable<ReturnType<typeof parseResponse>>} r */
+			const waiter = (r) => {
 				if (r.type === 'success') done(() => resolve(undefined));
 				else if (r.type === 'status' && STATUS_ERRORS[r.value]) done(() => reject(new Error(STATUS_ERRORS[r.value])));
 			};
+			this.onDisconnect = onDisconnect;
+			this.waiter = waiter;
 		});
+		return { promise, cancel };
 	}
 
 	/**
@@ -337,9 +351,14 @@ export class P15Printer {
 				await this.waitCredits(3, 1000);
 				const result = this.waitResult();
 				// Evita "unhandled rejection" se o envio falhar antes da confirmação.
-				result.catch(() => {});
-				await this.send(bulk, (s) => opts.onProgress?.(base + preamble.length + s, total));
-				await result;
+				result.promise.catch(() => {});
+				try {
+					await this.send(bulk, (s) => opts.onProgress?.(base + preamble.length + s, total));
+				} catch (err) {
+					result.cancel();
+					throw err;
+				}
+				await result.promise;
 			}
 		} finally {
 			this.printing = false;

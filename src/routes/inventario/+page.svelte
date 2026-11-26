@@ -70,8 +70,9 @@
 	let selecting = $state(false);
 	/** Itens escolhidos (id → true). @type {Record<number, boolean>} */
 	let selected = $state({});
+	// Só os itens escolhidos que estão visíveis com os filtros atuais.
 	const labelGroups = $derived(
-		data.items
+		filtered
 			.filter((i) => selected[i.id] && i.quantity > 0)
 			.map((i) => ({
 				key: `i${i.id}`,

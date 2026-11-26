@@ -42,7 +42,8 @@
 	});
 	const dots = $derived(labelDots(labelPrefs.size));
 	const sizeInfo = $derived(labelSize(labelPrefs.size));
-	const copiesN = $derived(Math.min(20, Math.max(1, Math.floor(copies) || 1)));
+	// Até 50 (folha de papel); para a etiquetadora o envio é dividido em pedidos de 20.
+	const copiesN = $derived(Math.min(50, Math.max(1, Math.floor(copies) || 1)));
 
 	// O nome acompanha o item (atualização automática) enquanto não for editado.
 	$effect(() => {
@@ -171,7 +172,7 @@
 			</label>
 			<label class="field">
 				<span>Cópias</span>
-				<input type="number" min="1" max="20" bind:value={copies} />
+				<input type="number" min="1" max="50" bind:value={copies} />
 			</label>
 		</section>
 

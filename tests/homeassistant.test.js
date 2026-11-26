@@ -171,6 +171,10 @@ describe('Home Assistant (simulado)', () => {
 		reply = () => ({ status: 400, body: 'Service marklife.print not found.' });
 		await expect(printViaHa(label)).rejects.toThrow('integração Marklife');
 
+		// outro 400 com "not found" não é a integração em falta: mostra a mensagem do HA
+		reply = () => ({ status: 400, body: JSON.stringify({ message: 'Device p15dev not found' }) });
+		await expect(printViaHa(label)).rejects.toThrow('Home Assistant: Device p15dev not found');
+
 		reply = () => ({ status: 500, body: JSON.stringify({ message: 'Failed to print: device not found' }) });
 		await expect(printViaHa(label)).rejects.toThrow('Home Assistant: Failed to print: device not found');
 

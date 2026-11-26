@@ -45,7 +45,9 @@ async function call(path, opts = {}) {
 	}
 	const text = await res.text();
 	if (res.status === 401 || res.status === 403) throw new HomeAssistantError('O token do Home Assistant não é válido.');
-	if (res.status === 404 || (res.status === 400 && /not found/i.test(text))) {
+	// Só o serviço em falta conta como "integração não instalada"; outros 400 (ex.: dispositivo
+	// que já não existe) mostram a mensagem do próprio HA.
+	if (res.status === 404 || (res.status === 400 && /(service|action) marklife\.print not found/i.test(text))) {
 		throw new HomeAssistantError('O Home Assistant não tem a integração Marklife instalada.');
 	}
 	if (!res.ok) {

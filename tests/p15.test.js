@@ -142,6 +142,24 @@ describe('envio pela P15 (impressora simulada)', () => {
 		expect(p.printing).toBe(false);
 	});
 
+	test('um envio falhado não estraga a impressão seguinte', async () => {
+		const { device } = fakeDevice();
+		const p = new P15Printer(device);
+		await p.connect();
+		// O 1.º envio do bitmap falha; a impressora não responde a nada.
+		const write = p.tx.writeValueWithoutResponse;
+		let calls = 0;
+		p.tx.writeValueWithoutResponse = async (/** @type {Uint8Array} */ c) => {
+			if (++calls === 2) throw new Error('GATT operation failed');
+			return write(c);
+		};
+		await expect(p.print(raster)).rejects.toThrow('GATT');
+		expect(p.waiter).toBe(null);
+		p.tx.writeValueWithoutResponse = write;
+		await p.print(raster);
+		expect(p.waiter).toBe(null);
+	});
+
 	test('lê a bateria', async () => {
 		const { device } = fakeDevice();
 		const p = new P15Printer(device);

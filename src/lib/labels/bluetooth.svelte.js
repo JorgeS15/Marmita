@@ -19,8 +19,12 @@ export const etiquetadora = $state({
 	error: ''
 });
 
-/** Pergunta a bateria (sem bloquear a impressão). */
-async function lerBateria() {
+/**
+ * Pergunta a bateria. Não corre durante uma impressão (os envios por
+ * Bluetooth não podem sobrepor-se): chamar depois de um lote inteiro.
+ */
+export async function lerBateria() {
+	if (etiquetadora.printing) return;
 	const level = await printer?.getBattery();
 	if (level != null) etiquetadora.battery = level;
 }
@@ -75,7 +79,6 @@ export async function imprimir(raster, opts) {
 	try {
 		await printer.print(raster, { ...opts, onProgress: (done, total) => (etiquetadora.progress = done / total) });
 		etiquetadora.connected = printer.connected;
-		lerBateria();
 		return true;
 	} catch (err) {
 		etiquetadora.error = message(err);

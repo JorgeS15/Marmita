@@ -20,8 +20,11 @@
 	/** @type {{ groups: import('$lib/labels/model.js').LabelGroup[], ha: { id: string, name: string } | null, haConfigured?: boolean, origin?: string | null, open?: boolean, title?: string }} */
 	let { groups, ha, haConfigured = false, origin = null, open = false, title = 'Etiquetas para as caixas' } = $props();
 
-	/** Uma etiqueta por dose (doses inteiras); com meias doses, uma etiqueta para tudo. @param {number} units */
-	const defaultCount = (units) => (Number.isInteger(units) ? Math.min(units, 20) : 1);
+	/**
+	 * Uma etiqueta por dose (doses inteiras, até 20); com meias doses ou mais de 20, uma etiqueta para tudo.
+	 * @param {number} units
+	 */
+	const defaultCount = (units) => (Number.isInteger(units) && units <= 20 ? units : 1);
 
 	/** Etiquetas por grupo (texto, como nos campos). @type {Record<string, number>} */
 	let counts = $state({});

@@ -232,8 +232,9 @@ describe.skipIf(!existsSync(BUILD))('servidor (build)', () => {
 		const fridge = items[1].id;
 		const moved = await action(`/inventario/${fridge}?/move`, { units: '1', location: 'congelador', best_before: '' });
 		expect(moved).toMatchObject({ type: 'success' });
-		// etiquetas para a caixa que foi para o congelador
+		// etiquetas para a caixa que foi para o congelador, com a data de hoje (não a do item a que se juntou)
 		expect(moved.data).toContain('labelGroup');
+		expect(moved.data).toContain(new Intl.DateTimeFormat('en-CA', { timeZone: process.env.TZ || undefined }).format(new Date()));
 		expect(q(`SELECT location, quantity FROM items WHERE name = 'Caril dividido' ORDER BY location`)).toEqual([
 			{ location: 'congelador', quantity: 3 },
 			{ location: 'frigorifico', quantity: 2 }
