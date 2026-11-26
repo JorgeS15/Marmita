@@ -42,7 +42,7 @@ Esforço: **P** = pequeno (umas horas) · **M** = médio (1–2 dias) · **G** =
 | 3.5 | **Inglês** (i18n), útil agora que o projeto é público | M |
 | 3.6 | **Uso offline com escrita**: marcar consumido/não consumido sem rede e sincronizar depois | G |
 | 3.7 | **Histórico de alterações** (quem mudou o quê) com "desfazer" | M |
-| 3.8 | **Código QR** nas etiquetas para abrir o item ao ler com o telemóvel (numa etiqueta de 12 mm cabe à justa, ao lado do texto) | P |
+| 3.8 | ~~**Código QR** nas etiquetas~~: feito na v1.14.0 (abre o item ao ler com o telemóvel). | ✓ |
 
 ---
 

@@ -46,7 +46,13 @@
 		{/if}
 		{#if form?.labelGroup && data.labels}
 			{#key form.labelGroup.key}
-				<LabelBatch groups={[form.labelGroup]} ha={data.labels.ha} haConfigured={data.labels.haConfigured} open />
+				<LabelBatch
+					groups={[form.labelGroup]}
+					ha={data.labels.ha}
+					haConfigured={data.labels.haConfigured}
+					origin={data.labels.origin}
+					open
+				/>
 			{/key}
 		{/if}
 

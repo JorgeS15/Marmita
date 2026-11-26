@@ -1,8 +1,9 @@
 <script>
 	// Várias etiquetas de uma vez (ex.: as caixas de uma preparação, divididas por local).
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import { LOCATIONS, fmtNum, labelOf } from '$lib/constants.js';
-	import { LABEL_SIZES, labelContent, labelDots } from '$lib/labels/model.js';
+	import { LABEL_SIZES, itemQrUrl, labelContent, labelDots } from '$lib/labels/model.js';
 	import { drawLabel } from '$lib/labels/render.js';
 	import PrinterControls from './PrinterControls.svelte';
 	import {
@@ -16,8 +17,8 @@
 		saveLabelPrefs
 	} from '$lib/labels/printing.svelte.js';
 
-	/** @type {{ groups: import('$lib/labels/model.js').LabelGroup[], ha: { id: string, name: string } | null, haConfigured?: boolean, open?: boolean }} */
-	let { groups, ha, haConfigured = false, open = false } = $props();
+	/** @type {{ groups: import('$lib/labels/model.js').LabelGroup[], ha: { id: string, name: string } | null, haConfigured?: boolean, origin?: string | null, open?: boolean }} */
+	let { groups, ha, haConfigured = false, origin = null, open = false } = $props();
 
 	/** Uma etiqueta por dose (doses inteiras); com meias doses, uma etiqueta para tudo. @param {number} units */
 	const defaultCount = (units) => (Number.isInteger(units) ? Math.min(units, 20) : 1);
@@ -43,7 +44,8 @@
 			showStored: labelPrefs.showStored,
 			showBestBefore: labelPrefs.showBestBefore,
 			showDoses: labelPrefs.showDoses,
-			doses: dosesEach(g)
+			doses: dosesEach(g),
+			qr: labelPrefs.showQr && g.item.id ? itemQrUrl(origin || page.url.origin, g.item.id) : undefined
 		});
 
 	const total = $derived(groups.reduce((n, g) => n + countOf(g), 0));
@@ -96,6 +98,11 @@
 					<option value={s.value}>{s.label}</option>
 				{/each}
 			</select>
+		</label>
+
+		<label class="toggle">
+			<input type="checkbox" bind:checked={labelPrefs.showQr} onchange={saveLabelPrefs} />
+			<span><strong>Código QR</strong><span class="muted small">Abre o item ao ler com o telemóvel.</span></span>
 		</label>
 
 		<PrinterControls {ha} {haConfigured} />
@@ -164,6 +171,27 @@
 	.count input {
 		width: 64px;
 		text-align: center;
+	}
+
+	.toggle {
+		display: flex;
+		align-items: flex-start;
+		gap: 12px;
+		min-height: 44px;
+		cursor: pointer;
+	}
+
+	.toggle input {
+		width: 22px;
+		height: 22px;
+		margin-top: 2px;
+		accent-color: var(--accent);
+		flex: none;
+	}
+
+	.toggle > span {
+		display: flex;
+		flex-direction: column;
 	}
 
 	progress {

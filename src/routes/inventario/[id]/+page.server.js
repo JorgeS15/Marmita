@@ -57,7 +57,7 @@ export const actions = {
 						? {
 								key: `m${target}-${Date.now()}`,
 								units: d.units,
-								item: { name: t.name, location: t.location, stored_on: t.stored_on, best_before: t.best_before }
+								item: { id: t.id, name: t.name, location: t.location, stored_on: t.stored_on, best_before: t.best_before }
 							}
 						: null,
 					moved: true,

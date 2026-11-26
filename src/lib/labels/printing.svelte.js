@@ -15,6 +15,8 @@ export const labelPrefs = $state({
 	showStored: true,
 	showBestBefore: true,
 	showDoses: true,
+	/** Código QR que abre o item no telemóvel. */
+	showQr: false,
 	density: 2,
 	flip: false,
 	/** 'ha' = através do Home Assistant; 'bluetooth' = direto deste dispositivo. */
@@ -33,7 +35,7 @@ export function initLabelPrefs() {
 	try {
 		const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}');
 		if (LABEL_SIZES.some((s) => s.value === saved.size)) labelPrefs.size = saved.size;
-		for (const k of /** @type {const} */ (['showStored', 'showBestBefore', 'showDoses', 'flip'])) {
+		for (const k of /** @type {const} */ (['showStored', 'showBestBefore', 'showDoses', 'showQr', 'flip'])) {
 			if (typeof saved[k] === 'boolean') labelPrefs[k] = saved[k];
 		}
 		if (DENSITIES.some((d) => d.value === saved.density)) labelPrefs.density = saved.density;

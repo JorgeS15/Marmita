@@ -21,6 +21,7 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e 
   - **Etiquetas para as caixas ao confirmar uma preparação**: o painel fica aberto e mostra as etiquetas, uma por dose, já separadas por local (ex.: 3 "Feito …" para o frigorífico e 2 "Cong. …" para o congelador), com o "consumir até" de cada local. O número de etiquetas pode ser mudado; com meias doses, sai uma etiqueta para tudo. Continua disponível no painel de uma preparação já feita.
   - **Etiquetas ao mover doses**: depois de mover doses para outro local (ex.: congelar parte), aparecem logo as etiquetas para essas caixas.
   - O tamanho, as opções e a escolha da etiquetadora são os mesmos em todo o lado (guardados no dispositivo).
+  - **Código QR** opcional na etiqueta, à esquerda do texto: ao ler com a câmara do telemóvel, abre o item no Marmita (endereço curto `/i/<id>`, que pede sessão como as outras páginas). Usa o `ORIGIN`, se estiver definido, para funcionar fora de casa. O gerador de QR está escrito no próprio projeto, sem dependências.
   - O tamanho e as opções ficam guardados no dispositivo.
 
 ## [1.13.1] - 2026-11-20

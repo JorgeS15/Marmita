@@ -53,10 +53,11 @@ const STORED_PREFIX = /** @type {Record<string, string>} */ ({
 });
 
 /**
- * @typedef {{ showStored?: boolean, showBestBefore?: boolean, showDoses?: boolean, doses?: number }} LabelOptions
- * @typedef {{ title: string, lines: string[] }} LabelContent
+ * @typedef {{ showStored?: boolean, showBestBefore?: boolean, showDoses?: boolean, doses?: number, qr?: string }} LabelOptions
+ * @typedef {{ title: string, lines: string[], qr?: string }} LabelContent
+ *   `qr`: texto do código QR (ex.: o endereço do item), à esquerda da etiqueta.
  * @typedef {{ key: string, units: number,
- *   item: { name: string, location: string, stored_on?: string | null, best_before?: string | null } }} LabelGroup
+ *   item: { id?: number | null, name: string, location: string, stored_on?: string | null, best_before?: string | null } }} LabelGroup
  *   Caixas iguais (mesmo item/local), para imprimir várias etiquetas de uma vez.
  */
 
@@ -82,5 +83,13 @@ export function labelContent(item, opts = {}) {
 		if (lines.length) lines[lines.length - 1] += ` · ${dosesText}`;
 		else lines.push(dosesText);
 	}
-	return { title: (item.name ?? '').trim(), lines };
+	return { title: (item.name ?? '').trim(), lines, ...(opts.qr ? { qr: opts.qr } : {}) };
+}
+
+/**
+ * Endereço curto de um item, para o código QR (abre o item ao ler com o telemóvel).
+ * @param {string} origin ex.: "https://marmita.exemplo.pt" @param {number} id
+ */
+export function itemQrUrl(origin, id) {
+	return `${origin.replace(/\/+$/, '')}/i/${id}`;
 }

@@ -666,13 +666,14 @@
 					.map((o) => ({
 						key: `o${o.id}`,
 						units: o.units,
-						item: { name: o.name, location: o.location, stored_on: o.stored_on, best_before: o.best_before }
+						item: { id: o.item_id, name: o.name, location: o.location, stored_on: o.stored_on, best_before: o.best_before }
 					}))}
 				{#if labelGroups.length && data.labels}
 					<LabelBatch
 						groups={labelGroups}
 						ha={data.labels.ha}
 						haConfigured={data.labels.haConfigured}
+						origin={data.labels.origin}
 						open={page.url.searchParams.has('etiquetas')}
 					/>
 				{/if}

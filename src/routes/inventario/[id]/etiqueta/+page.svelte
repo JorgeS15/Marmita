@@ -1,7 +1,8 @@
 <script>
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import { LOCATIONS, fmtNum, labelOf } from '$lib/constants.js';
-	import { LABEL_SIZES, labelContent, labelDots, labelSize } from '$lib/labels/model.js';
+	import { LABEL_SIZES, itemQrUrl, labelContent, labelDots, labelSize } from '$lib/labels/model.js';
 	import { drawLabel } from '$lib/labels/render.js';
 	import PrinterControls from '$lib/components/PrinterControls.svelte';
 	import {
@@ -34,7 +35,8 @@
 			showStored: labelPrefs.showStored,
 			showBestBefore: labelPrefs.showBestBefore,
 			showDoses: labelPrefs.showDoses,
-			doses
+			doses,
+			qr: labelPrefs.showQr ? itemQrUrl(data.labels?.origin || page.url.origin, item.id) : undefined
 		}),
 		title: title.trim() || item.name
 	});
@@ -160,6 +162,13 @@
 					/>
 				</label>
 			</div>
+			<label class="toggle">
+				<input type="checkbox" bind:checked={labelPrefs.showQr} onchange={saveLabelPrefs} />
+				<span>
+					<strong>Código QR</strong>
+					<span class="muted small">Ao ler com a câmara do telemóvel, abre este item no Marmita.</span>
+				</span>
+			</label>
 			<label class="field">
 				<span>Cópias</span>
 				<input type="number" min="1" max="20" bind:value={copies} />

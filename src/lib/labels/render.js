@@ -1,6 +1,8 @@
 // Desenho das etiquetas: disposição do texto (pura, testável) e desenho num
 // <canvas> a preto e branco, ao tamanho real em pontos da etiquetadora.
 
+import { qrCode } from './qr.js';
+
 /** Margem à volta do texto, em pontos. */
 const PAD = 4;
 /** Espaço entre linhas, em pontos. */
@@ -10,7 +12,23 @@ const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
 /**
  * @typedef {(text: string, size: number, bold: boolean) => number} Measure
  * @typedef {{ text: string, size: number, bold: boolean, y: number }} PlacedLine
+ * @typedef {{ x: number, y: number, scale: number, modules: boolean[][] }} PlacedQr
  */
+
+/**
+ * Lugar do código QR: um quadrado à esquerda, com a altura da etiqueta, e
+ * módulos de tamanho inteiro (pontos nítidos na impressão térmica).
+ * @param {string} text @param {{ width: number, height: number }} dots
+ * @returns {PlacedQr}
+ */
+export function layoutQr(text, dots) {
+	const { size, modules } = qrCode(text);
+	// Pelo menos 1 módulo de margem de cada lado (o resto da etiqueta é branco).
+	const scale = Math.max(1, Math.floor(dots.height / (size + 2)));
+	const side = size * scale;
+	const off = Math.floor((dots.height - side) / 2);
+	return { x: off, y: off, scale, modules };
+}
 
 /**
  * Corta o texto com "…" até caber na largura, ao tamanho indicado.
@@ -34,7 +52,8 @@ export function ellipsize(text, size, bold, maxWidth, measure) {
  */
 export function layoutLabel(content, dots, measure) {
 	const lines = content.lines.filter(Boolean).slice(0, 2);
-	const maxWidth = dots.width - PAD * 2;
+	// Com código QR, o texto fica à direita do quadrado.
+	const maxWidth = dots.width - PAD * 2 - (content.qr ? dots.height : 0);
 	const inner = dots.height - PAD * 2 - GAP * lines.length;
 	// Proporção título : linha ≈ 1,5 : 1.
 	const unit = inner / (1.5 + lines.length);
@@ -97,9 +116,18 @@ export function drawLabel(canvas, content, dots) {
 	ctx.fillStyle = '#000';
 	ctx.textBaseline = 'top';
 	ctx.textAlign = 'center';
+	// Centro do texto: a meio da etiqueta, ou a meio do espaço à direita do QR.
+	let cx = dots.width / 2;
+	if (content.qr) {
+		const qr = layoutQr(content.qr, dots);
+		qr.modules.forEach((row, my) =>
+			row.forEach((dark, mx) => dark && ctx.fillRect(qr.x + mx * qr.scale, qr.y + my * qr.scale, qr.scale, qr.scale))
+		);
+		cx = dots.height + (dots.width - dots.height) / 2;
+	}
 	for (const l of layoutLabel(content, dots, measure)) {
 		ctx.font = `${l.bold ? 700 : 500} ${l.size}px ${FONT}`;
-		ctx.fillText(l.text, dots.width / 2, l.y);
+		ctx.fillText(l.text, cx, l.y);
 	}
 	const img = ctx.getImageData(0, 0, dots.width, dots.height);
 	toMono(img.data);
