@@ -14,7 +14,7 @@ A interface está em português de Portugal.
   - Aceita meias doses (ex.: `0,5`).
   - Permite **mover doses** de um local para outro, por exemplo para congelar parte do que está no frigorífico ou para descongelar uma dose.
   - A pesquisa e os filtros mantêm-se ao abrir um item e voltar à lista.
-  - **Etiquetas** para as caixas: nome, data de congelação, "consumir até" e doses, nos tamanhos da etiquetadora Marklife P15. Imprime diretamente na etiquetadora por **Bluetooth** (Chrome em Android ou no computador, por HTTPS) ou através do **Home Assistant**, a partir de qualquer dispositivo (ver [Etiquetas pelo Home Assistant](#etiquetas-pelo-home-assistant)). Ao confirmar uma preparação ou mover doses, aparecem logo as etiquetas para as caixas (uma por dose, por local). Na lista do inventário dá para escolher vários itens (ex.: todo o congelador) e imprimir as etiquetas de uma vez. Opcionalmente, a etiqueta leva um código QR que abre o item ao ser lido com o telemóvel. Também dá para descarregar em PNG ou imprimir numa impressora normal.
+  - **Etiquetas** para as caixas: nome, data de congelação, "consumir até" e doses, nos tamanhos da etiquetadora Marklife P15. Imprime diretamente na etiquetadora por **Bluetooth** (Chrome em Android ou no computador, por HTTPS) ou através do **Home Assistant**, a partir de qualquer dispositivo (ver [Etiquetas pelo Home Assistant](#etiquetas-pelo-home-assistant)). Ao confirmar uma preparação ou mover doses, aparecem logo as etiquetas para as caixas (uma por dose, por local). Na lista do inventário dá para escolher vários itens (ex.: todo o congelador) e imprimir as etiquetas de uma vez. Há também uma **etiqueta livre**, com texto à escolha (ex.: "Aberto 26/11" num frasco). Opcionalmente, a etiqueta leva um código QR que abre o item ao ser lido com o telemóvel. Também dá para descarregar em PNG ou imprimir numa impressora normal.
 - **Semana**: de domingo a sábado ou de segunda a domingo (definição da casa). Tem pequeno-almoço, lanche da manhã (opcional), almoço, lanche da tarde e jantar.
   - Cada refeição pode ter várias entradas, vindas do inventário ou em texto livre.
   - Cada entrada é atribuída a uma pessoa da casa ou a todas, e cada pessoa tem a sua cor.
@@ -250,6 +250,8 @@ src/
 └─ routes/
    ├─ +page.*               # Semana (?w=AAAA-MM-DD; painéis no URL)
    ├─ inventario/           # lista, novo, [id], [id]/etiqueta
+   ├─ etiquetas/            # etiqueta livre; ha/ (imprimir e estado pelo Home Assistant)
+   ├─ i/[id]                # endereço curto do código QR → /inventario/[id]
    ├─ ideias/               # bloco de notas (lista, nova, [id])
    ├─ definicoes/           # perfil, refeições da casa, notificações, palavra-passe, pessoas, dados
    ├─ login/ setup/ logout/

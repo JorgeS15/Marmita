@@ -23,6 +23,7 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e 
   - O tamanho, as opções e a escolha da etiquetadora são os mesmos em todo o lado (guardados no dispositivo).
   - **Etiquetas de vários itens a partir do inventário**: o botão "🏷 Etiquetas" na lista deixa escolher itens (ou "Todos os visíveis", com os filtros ativos, ex.: Congelador) e imprimir as etiquetas de todos, uma por dose. Serve para etiquetar o que já está guardado.
   - **Bateria e estado da etiquetadora** junto ao nome: por Bluetooth, a bateria é lida ao ligar e depois de imprimir; pelo Home Assistant, vêm dos sensores da integração (bateria, sem papel, tampa aberta, indisponível).
+  - **Etiqueta livre** (`/etiquetas`, ligação no fundo do inventário): texto à escolha para frascos e sacos abertos, sobras ou o que não está no inventário, com atalhos ("Aberto hoje", "Até +1 semana"…).
   - **Código QR** opcional na etiqueta, à esquerda do texto: ao ler com a câmara do telemóvel, abre o item no Marmita (endereço curto `/i/<id>`, que pede sessão como as outras páginas). Usa o `ORIGIN`, se estiver definido, para funcionar fora de casa. O gerador de QR está escrito no próprio projeto, sem dependências.
   - O tamanho e as opções ficam guardados no dispositivo.
 

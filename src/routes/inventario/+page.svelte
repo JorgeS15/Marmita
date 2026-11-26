@@ -235,6 +235,7 @@
 	{/if}
 
 	<div class="archived">
+		<a class="btn ghost small" href="/etiquetas">🏷 Etiqueta livre</a>
 		{#if data.showArchived}
 			<h2 class="section">Arquivados</h2>
 			{#if data.archived.length}
