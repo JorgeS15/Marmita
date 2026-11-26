@@ -50,7 +50,16 @@ export const actions = {
 				};
 				const target = moveDoses(id, d, locals.user.id);
 				if (target == null) error(404, 'Item não encontrado.');
+				const t = getItem(target);
 				return {
+					// Para imprimir logo as etiquetas das caixas que mudaram de local.
+					labelGroup: t
+						? {
+								key: `m${target}-${Date.now()}`,
+								units: d.units,
+								item: { name: t.name, location: t.location, stored_on: t.stored_on, best_before: t.best_before }
+							}
+						: null,
 					moved: true,
 					ok: `${String(d.units).replace('.', ',')} ${d.units === 1 ? 'dose passou' : 'doses passaram'} para o ${labelOf(LOCATIONS, d.location).toLowerCase()}.`,
 					target

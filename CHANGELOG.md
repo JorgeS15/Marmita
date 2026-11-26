@@ -18,6 +18,9 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e 
     - A etiqueta vai como imagem (a mesma da pré-visualização). O token fica só no servidor.
     - Com o HA configurado e Bluetooth disponível, a página da etiqueta deixa escolher entre "Home Assistant" e "Bluetooth". A escolha fica guardada no dispositivo.
     - O número de cópias passa a ir até 20.
+  - **Etiquetas para as caixas ao confirmar uma preparação**: o painel fica aberto e mostra as etiquetas, uma por dose, já separadas por local (ex.: 3 "Feito …" para o frigorífico e 2 "Cong. …" para o congelador), com o "consumir até" de cada local. O número de etiquetas pode ser mudado; com meias doses, sai uma etiqueta para tudo. Continua disponível no painel de uma preparação já feita.
+  - **Etiquetas ao mover doses**: depois de mover doses para outro local (ex.: congelar parte), aparecem logo as etiquetas para essas caixas.
+  - O tamanho, as opções e a escolha da etiquetadora são os mesmos em todo o lado (guardados no dispositivo).
   - O tamanho e as opções ficam guardados no dispositivo.
 
 ## [1.13.1] - 2026-11-20

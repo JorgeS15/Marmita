@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import ItemForm from '$lib/components/ItemForm.svelte';
 	import StockBadge from '$lib/components/StockBadge.svelte';
+	import LabelBatch from '$lib/components/LabelBatch.svelte';
 	import { LOCATIONS, doses, fmtNum, labelOf, slotLabel } from '$lib/constants.js';
 	import { addDays, dayMonth, weekdayShort } from '$lib/dates.js';
 
@@ -42,6 +43,11 @@
 				{form.ok}
 				{#if form.target}<a href="/inventario/{form.target}{voltarQs}">Ver lá</a>{/if}
 			</p>
+		{/if}
+		{#if form?.labelGroup && data.labels}
+			{#key form.labelGroup.key}
+				<LabelBatch groups={[form.labelGroup]} ha={data.labels.ha} haConfigured={data.labels.haConfigured} open />
+			{/key}
 		{/if}
 
 		<section class="card stack">

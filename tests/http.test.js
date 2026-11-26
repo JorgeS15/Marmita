@@ -218,6 +218,8 @@ describe.skipIf(!existsSync(BUILD))('servidor (build)', () => {
 			item_notes: ''
 		});
 		expect(ok.type).toBe('redirect');
+		// volta ao painel da preparação, com as etiquetas das caixas abertas
+		expect(ok.location).toBe(`/?w=2026-10-11&preparacao=${prep.id}&etiquetas=1`);
 		const items = q(`SELECT id, location, quantity, best_before FROM items WHERE name = 'Caril dividido' ORDER BY location`);
 		expect(items.map((i) => [i.location, i.quantity, i.best_before])).toEqual([
 			['congelador', 2, null],
@@ -225,10 +227,13 @@ describe.skipIf(!existsSync(BUILD))('servidor (build)', () => {
 		]);
 		const page = await (await req(`/?w=2026-10-11&preparacao=${prep.id}`)).text();
 		expect(page).toContain('frigorífico');
+		expect(page).toContain('Etiquetas para as caixas');
 
 		const fridge = items[1].id;
 		const moved = await action(`/inventario/${fridge}?/move`, { units: '1', location: 'congelador', best_before: '' });
 		expect(moved).toMatchObject({ type: 'success' });
+		// etiquetas para a caixa que foi para o congelador
+		expect(moved.data).toContain('labelGroup');
 		expect(q(`SELECT location, quantity FROM items WHERE name = 'Caril dividido' ORDER BY location`)).toEqual([
 			{ location: 'congelador', quantity: 3 },
 			{ location: 'frigorifico', quantity: 2 }

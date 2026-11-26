@@ -281,7 +281,10 @@ export const actions = {
 				),
 				'Preparação não encontrada ou já confirmada.'
 			);
-			back(form);
+			// Volta ao painel da preparação, com as etiquetas das caixas abertas.
+			const w = form.get('w');
+			const start = typeof w === 'string' && isISODate(w) ? weekStartOf(w, monday()) : null;
+			redirect(303, `/?${start ? `w=${start}&` : ''}preparacao=${id(form)}&etiquetas=1`);
 		}),
 
 	prepMeal: ({ request, locals }) =>

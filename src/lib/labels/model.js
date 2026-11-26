@@ -55,6 +55,9 @@ const STORED_PREFIX = /** @type {Record<string, string>} */ ({
 /**
  * @typedef {{ showStored?: boolean, showBestBefore?: boolean, showDoses?: boolean, doses?: number }} LabelOptions
  * @typedef {{ title: string, lines: string[] }} LabelContent
+ * @typedef {{ key: string, units: number,
+ *   item: { name: string, location: string, stored_on?: string | null, best_before?: string | null } }} LabelGroup
+ *   Caixas iguais (mesmo item/local), para imprimir várias etiquetas de uma vez.
  */
 
 /**

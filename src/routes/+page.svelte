@@ -8,6 +8,7 @@
 	import PersonPicker from '$lib/components/PersonPicker.svelte';
 	import PrepEditor from '$lib/components/PrepEditor.svelte';
 	import DayChips from '$lib/components/DayChips.svelte';
+	import LabelBatch from '$lib/components/LabelBatch.svelte';
 	import { CATEGORIES, LOCATIONS, SLOT_VALUES, doses, fmtNum, labelOf, normalize, slotLabel, slotsFor } from '$lib/constants.js';
 	import {
 		addDays,
@@ -659,6 +660,21 @@
 					<p class="muted small" style="margin:0">
 						Ingredientes descontados: {prepIngredients.map((g) => `${g.name} (${fmtNum(g.consumed)})`).join(', ')}
 					</p>
+				{/if}
+				{@const labelGroups = data.prepOutputs
+					.filter((o) => o.prep_id === p.id && o.item_id && o.name)
+					.map((o) => ({
+						key: `o${o.id}`,
+						units: o.units,
+						item: { name: o.name, location: o.location, stored_on: o.stored_on, best_before: o.best_before }
+					}))}
+				{#if labelGroups.length && data.labels}
+					<LabelBatch
+						groups={labelGroups}
+						ha={data.labels.ha}
+						haConfigured={data.labels.haConfigured}
+						open={page.url.searchParams.has('etiquetas')}
+					/>
 				{/if}
 				<form method="POST" action="?/prepUndo" use:enhance={submit(() => confirm('Desfazer? As doses adicionadas saem do inventário e os ingredientes voltam ao stock.'))}>
 					<input type="hidden" name="w" value={data.start} />
