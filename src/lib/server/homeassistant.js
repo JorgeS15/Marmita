@@ -88,6 +88,45 @@ export async function listPrinters() {
 		.sort((a, b) => a.name.localeCompare(b.name, 'pt'));
 }
 
+/**
+ * Bateria e estado da etiquetadora (sensores da integração Marklife).
+ * Devolve JSON: { "battery": "80" | "unavailable" | null, "status": "out_of_paper" | … | null }.
+ */
+const STATUS_TEMPLATE = `{%- set ents = device_entities(device_id) -%}
+{%- set bat = ents | select('match', 'sensor\\.') | select('is_state_attr', 'device_class', 'battery') | map('states') | first | default(none) -%}
+{%- set st = ents | select('match', 'sensor\\..*_status$') | map('states') | first | default(none) -%}
+{{ {'battery': bat, 'status': st} | tojson }}`;
+
+const STATUS_TEXT = /** @type {Record<string, string>} */ ({
+	out_of_paper: 'Sem papel',
+	cover_open: 'Tampa aberta',
+	overheating: 'Demasiado quente',
+	low_battery: 'Bateria fraca'
+});
+
+/**
+ * @returns {Promise<{ available: boolean, battery: number | null, problem: string }>}
+ */
+export async function printerStatus() {
+	const printer = getHaPrinter();
+	if (!printer) throw new HomeAssistantError('Escolhe a etiquetadora do Home Assistant em Definições.');
+	const text = await call('/api/template', { body: { template: STATUS_TEMPLATE, variables: { device_id: printer.id } } });
+	/** @type {{ battery?: unknown, status?: unknown }} */
+	let raw = {};
+	try {
+		raw = JSON.parse(text) ?? {};
+	} catch {
+		throw new HomeAssistantError('Resposta inesperada do Home Assistant.');
+	}
+	const bat = Number(raw.battery);
+	const off = raw.battery === 'unavailable' || raw.battery === 'unknown';
+	return {
+		available: !off,
+		battery: !off && raw.battery != null && Number.isFinite(bat) ? Math.round(bat) : null,
+		problem: typeof raw.status === 'string' ? (STATUS_TEXT[raw.status] ?? '') : ''
+	};
+}
+
 /** Etiquetadora escolhida para a casa (em Definições). */
 export function getHaPrinter() {
 	const id = getRawSetting('label_ha_device') ?? '';

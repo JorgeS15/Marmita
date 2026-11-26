@@ -1,5 +1,5 @@
 import { error, json } from '@sveltejs/kit';
-import { HomeAssistantError, parseLabelRequest, printViaHa } from '$lib/server/homeassistant.js';
+import { HomeAssistantError, parseLabelRequest, printViaHa, printerStatus } from '$lib/server/homeassistant.js';
 
 /**
  * Imprime uma etiqueta através do Home Assistant.
@@ -16,4 +16,14 @@ export async function POST({ request }) {
 		throw err;
 	}
 	return json({ ok: true });
+}
+
+/** Bateria e estado da etiquetadora no Home Assistant. @type {import('./$types').RequestHandler} */
+export async function GET() {
+	try {
+		return json(await printerStatus());
+	} catch (err) {
+		if (err instanceof HomeAssistantError) error(400, err.message);
+		throw err;
+	}
 }

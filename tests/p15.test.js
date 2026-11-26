@@ -83,6 +83,7 @@ function fakeDevice(opts = {}) {
 			async writeValueWithoutResponse(/** @type {Uint8Array} */ chunk) {
 				written.push(chunk);
 				setTimeout(() => notify(chars.cx, [0x01, 1]), 1);
+				if ([...chunk].join() === [0x10, 0xff, 0x50, 0xf1].join()) setTimeout(() => notify(chars.rx, [0x10, 77]), 5);
 				const tail = [...chunk.slice(-4)];
 				if (tail.join() === [0x10, 0xff, 0xf1, 0x45].join()) setTimeout(() => notify(chars.rx, finalReply), 5);
 			}
@@ -139,6 +140,15 @@ describe('envio pela P15 (impressora simulada)', () => {
 		await p.connect();
 		await expect(p.print(raster)).rejects.toThrow('não tem papel');
 		expect(p.printing).toBe(false);
+	});
+
+	test('lê a bateria', async () => {
+		const { device } = fakeDevice();
+		const p = new P15Printer(device);
+		await p.connect();
+		expect(await p.getBattery()).toBe(77);
+		device.gatt.disconnect();
+		expect(await p.getBattery()).toBe(null);
 	});
 
 	test('volta a ligar se a impressora se tiver desligado', async () => {

@@ -14,8 +14,16 @@ export const etiquetadora = $state({
 	printing: false,
 	/** 0–1 durante a impressão. */
 	progress: 0,
+	/** Bateria (%), se a impressora respondeu. @type {number | null} */
+	battery: null,
 	error: ''
 });
+
+/** Pergunta a bateria (sem bloquear a impressão). */
+async function lerBateria() {
+	const level = await printer?.getBattery();
+	if (level != null) etiquetadora.battery = level;
+}
 
 /** @param {unknown} err */
 function message(err) {
@@ -36,6 +44,8 @@ export async function ligar() {
 		printer.onDisconnect = () => (etiquetadora.connected = false);
 		etiquetadora.name = printer.name;
 		etiquetadora.connected = true;
+		etiquetadora.battery = null;
+		lerBateria();
 	} catch (err) {
 		etiquetadora.error = message(err);
 	} finally {
@@ -48,6 +58,7 @@ export function desligar() {
 	printer = null;
 	etiquetadora.connected = false;
 	etiquetadora.name = '';
+	etiquetadora.battery = null;
 }
 
 /**
@@ -64,6 +75,7 @@ export async function imprimir(raster, opts) {
 	try {
 		await printer.print(raster, { ...opts, onProgress: (done, total) => (etiquetadora.progress = done / total) });
 		etiquetadora.connected = printer.connected;
+		lerBateria();
 		return true;
 	} catch (err) {
 		etiquetadora.error = message(err);

@@ -9,6 +9,27 @@
 
 	const useHa = $derived(usesHa(ha));
 	const ready = $derived(useHa || (labelPrefs.bluetooth && !!etiquetadora.name));
+
+	/** Bateria e estado da etiquetadora no HA (pedido ao abrir). */
+	let haStatus = $state(/** @type {{ available: boolean, battery: number | null, problem: string } | null} */ (null));
+	const haId = $derived(useHa ? (ha?.id ?? '') : '');
+	$effect(() => {
+		if (!haId) return;
+		let stop = false;
+		fetch('/etiquetas/ha')
+			.then((r) => (r.ok ? r.json() : null))
+			.then((s) => !stop && (haStatus = s))
+			.catch(() => {});
+		return () => (stop = true);
+	});
+
+	const haLine = $derived.by(() => {
+		if (!haStatus) return 'através do Home Assistant';
+		if (!haStatus.available) return 'através do Home Assistant · indisponível agora';
+		return ['através do Home Assistant', haStatus.battery != null ? `bateria ${haStatus.battery}%` : '', haStatus.problem]
+			.filter(Boolean)
+			.join(' · ');
+	});
 </script>
 
 {#if ha && labelPrefs.bluetooth}
@@ -20,10 +41,10 @@
 
 {#if useHa}
 	<div class="row printer">
-		<span class="dot on" aria-hidden="true"></span>
+		<span class="dot" class:on={haStatus?.available !== false && !haStatus?.problem} class:warn={!!haStatus?.problem} aria-hidden="true"></span>
 		<span class="grow">
 			<strong>{ha?.name}</strong>
-			<span class="muted small">através do Home Assistant</span>
+			<span class="muted small">{haLine}</span>
 		</span>
 	</div>
 {:else if !labelPrefs.bluetooth}
@@ -37,7 +58,11 @@
 		<span class="dot" class:on={etiquetadora.connected} aria-hidden="true"></span>
 		<span class="grow">
 			<strong>{etiquetadora.name}</strong>
-			<span class="muted small">{etiquetadora.connected ? 'ligada' : 'desligada (volta a ligar ao imprimir)'}</span>
+			<span class="muted small">
+				{etiquetadora.connected ? 'ligada' : 'desligada (volta a ligar ao imprimir)'}{etiquetadora.battery != null
+					? ` · bateria ${etiquetadora.battery}%`
+					: ''}
+			</span>
 		</span>
 		<button type="button" class="btn small ghost" onclick={desligar} disabled={etiquetadora.printing}>Esquecer</button>
 	</div>
@@ -128,6 +153,10 @@
 
 	.dot.on {
 		background: var(--ok);
+	}
+
+	.dot.warn {
+		background: var(--warn);
 	}
 
 	.toggle {

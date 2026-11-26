@@ -147,6 +147,8 @@ export class P15Printer {
 	printing = false;
 	/** @type {((r: NonNullable<ReturnType<typeof parseResponse>>) => void) | null} */
 	waiter = null;
+	/** Respostas a perguntas (bateria…) chegam sem cabeçalho conhecido. @type {((b: Uint8Array) => void) | null} */
+	rawWaiter = null;
 	/** @type {() => void} */
 	onDisconnect = () => {};
 
@@ -217,7 +219,10 @@ export class P15Printer {
 	/** @param {Uint8Array} bytes */
 	handle(bytes) {
 		const r = parseResponse(bytes);
-		if (!r) return;
+		if (!r) {
+			this.rawWaiter?.(bytes);
+			return;
+		}
 		if (r.type === 'credit') {
 			this.credits += r.value;
 			this.lastCredit = Date.now();
@@ -257,6 +262,32 @@ export class P15Printer {
 			offset += chunk.length;
 			onProgress?.(offset);
 			if (offset < data.length) await sleep(TICK_MS);
+		}
+	}
+
+	/**
+	 * Nível da bateria (0–100), ou null se a impressora não responder.
+	 * A resposta vem como [10, nível] ou só [nível].
+	 */
+	async getBattery(timeoutMs = 3000) {
+		if (this.printing || !this.connected) return null;
+		/** @type {Promise<Uint8Array | null>} */
+		const answer = new Promise((resolve) => {
+			const timer = setTimeout(() => resolve(null), timeoutMs);
+			this.rawWaiter = (b) => {
+				clearTimeout(timer);
+				resolve(b);
+			};
+		});
+		try {
+			await this.send(Uint8Array.from([0x10, 0xff, 0x50, 0xf1]));
+			const b = await answer;
+			const level = b ? (b.length >= 2 ? b[1] : b[0]) : null;
+			return level != null && level <= 100 ? level : null;
+		} catch {
+			return null;
+		} finally {
+			this.rawWaiter = null;
 		}
 	}
 

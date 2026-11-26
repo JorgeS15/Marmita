@@ -8,6 +8,7 @@ import {
 	parseLabelRequest,
 	printBody,
 	printViaHa,
+	printerStatus,
 	setHaPrinter
 } from '$lib/server/homeassistant.js';
 
@@ -144,6 +145,20 @@ describe('Home Assistant (simulado)', () => {
 		expect(calls[0].path).toBe('/api/services/marklife/print');
 		expect(calls[0].auth).toBe('Bearer segredo');
 		expect(calls[0].body).toMatchObject({ device_id: 'p15dev', rotate: 90, copies: 2 });
+	});
+
+	test('bateria e estado da etiquetadora', async () => {
+		setHaPrinter({ id: 'p15dev', name: 'P15' });
+		reply = (path) => (path === '/api/template' ? { status: 200, body: JSON.stringify({ battery: '80', status: 'out_of_paper' }) } : null);
+		expect(await printerStatus()).toEqual({ available: true, battery: 80, problem: 'Sem papel' });
+		expect(calls[0].body.variables).toEqual({ device_id: 'p15dev' });
+		expect(calls[0].body.template).toContain('device_entities(device_id)');
+
+		reply = () => ({ status: 200, body: JSON.stringify({ battery: 'unavailable', status: null }) });
+		expect(await printerStatus()).toEqual({ available: false, battery: null, problem: '' });
+
+		reply = () => ({ status: 200, body: JSON.stringify({ battery: null, status: 'cover_closed' }) });
+		expect(await printerStatus()).toEqual({ available: true, battery: null, problem: '' });
 	});
 
 	test('erros do HA chegam traduzidos', async () => {
