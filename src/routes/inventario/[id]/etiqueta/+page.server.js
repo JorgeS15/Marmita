@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { getItem } from '$lib/server/items.js';
 import { inventoryHref } from '$lib/inventory.js';
+import { getHaPrinter, haConfig } from '$lib/server/homeassistant.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export function load({ params, url }) {
@@ -13,6 +14,9 @@ export function load({ params, url }) {
 		item,
 		// Volta ao item mantendo os filtros da lista.
 		back: `/inventario/${id}${voltar ? `?voltar=${encodeURIComponent(voltar)}` : ''}`,
-		list: inventoryHref(voltar)
+		list: inventoryHref(voltar),
+		haConfigured: !!haConfig(),
+		// Impressão pelo Home Assistant: só com HA configurado e etiquetadora escolhida.
+		ha: haConfig() ? getHaPrinter() : null
 	};
 }

@@ -18,6 +18,15 @@ import { nowParts } from '$lib/dates.js';
 import { listBackups } from '$lib/server/backup.js';
 import { KINDS, countSubscriptions, getPrefs, setPrefs, vapid } from '$lib/server/notifications.js';
 import { validateNewUser, validatePassword } from '$lib/server/users.js';
+import { HomeAssistantError, getHaPrinter, haConfig, listPrinters, setHaPrinter } from '$lib/server/homeassistant.js';
+
+/** Lista das etiquetadoras no HA; nunca rejeita (o erro vai para a página). */
+function haPrinters() {
+	return listPrinters().then(
+		(list) => ({ list, error: '' }),
+		(err) => ({ list: [], error: err instanceof HomeAssistantError ? err.message : 'Erro ao contactar o Home Assistant.' })
+	);
+}
 
 /** @type {import('./$types').PageServerLoad} */
 export function load({ locals }) {
@@ -25,6 +34,12 @@ export function load({ locals }) {
 	return {
 		users: listUsers(),
 		backups: listBackups(),
+		labels: {
+			ha: !!haConfig(),
+			printer: getHaPrinter(),
+			// Pedido ao HA sem atrasar a página (é mostrado quando chegar).
+			printers: haConfig() ? haPrinters() : null
+		},
 		push: {
 			publicKey: vapid().publicKey,
 			devices: countSubscriptions(userId),
@@ -49,6 +64,24 @@ export const actions = {
 		}
 		setPrefs(locals.user.id, prefs);
 		return { section: 'notifications', ok: 'Notificações guardadas.' };
+	},
+
+	labelPrinter: async ({ request }) => {
+		const form = await request.formData();
+		const id = String(form.get('device') ?? '');
+		if (!id) {
+			setHaPrinter(null);
+			return { section: 'labels', ok: 'Etiquetadora do Home Assistant removida.' };
+		}
+		try {
+			const printer = (await listPrinters()).find((p) => p.id === id);
+			if (!printer) return fail(400, { section: 'labels', error: 'Essa etiquetadora já não existe no Home Assistant.' });
+			setHaPrinter(printer);
+			return { section: 'labels', ok: `Etiquetadora guardada: ${printer.name}.` };
+		} catch (err) {
+			if (err instanceof HomeAssistantError) return fail(502, { section: 'labels', error: err.message });
+			throw err;
+		}
 	},
 
 	house: async ({ request }) => {

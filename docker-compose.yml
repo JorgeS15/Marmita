@@ -11,5 +11,8 @@ services:
     environment:
       ORIGIN: https://marmita.exemplo.pt # URL pública (opcional)
       TZ: Europe/Lisbon
+      # Opcional: imprimir etiquetas através do Home Assistant (integração Marklife)
+      # HA_URL: http://homeassistant.local:8123
+      # HA_TOKEN: <token de acesso de longa duração do HA>
     volumes:
       - ./data:/data

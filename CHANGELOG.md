@@ -13,6 +13,11 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-PT/1.1.0/) e 
   - **Imprimir diretamente na etiquetadora Marklife P15** (ou compatível: P12, P7, LP15…) por Bluetooth, a partir do Chrome em Android ou no computador (precisa de HTTPS). Basta ligar a etiquetadora uma vez: a ligação mantém-se ao passar de item para item. Se a etiquetadora se desligar entretanto, a app volta a ligar-se ao imprimir.
     - Escolhe-se o número de cópias, a densidade (clara, normal ou escura) e "Rodar 180°", para quando o texto sai ao contrário. Mostra o progresso da impressão e avisa se a etiquetadora não tiver papel, tiver a tampa aberta ou estiver demasiado quente.
     - O protocolo (L11) está escrito no próprio projeto, a partir do thermoprint e do hass-marklife (MIT), e não acrescenta dependências.
+  - **Imprimir através do Home Assistant**, a partir de qualquer dispositivo ou browser, com a integração [Marklife](https://github.com/eigger/hass-marklife) (o HA liga-se à etiquetadora por Bluetooth ou por um proxy ESPHome).
+    - Configura-se com `HA_URL` e `HA_TOKEN`. A etiquetadora escolhe-se em **Definições → Etiquetadora**, para toda a casa: o Marmita pergunta ao HA quais existem.
+    - A etiqueta vai como imagem (a mesma da pré-visualização). O token fica só no servidor.
+    - Com o HA configurado e Bluetooth disponível, a página da etiqueta deixa escolher entre "Home Assistant" e "Bluetooth". A escolha fica guardada no dispositivo.
+    - O número de cópias passa a ir até 20.
   - O tamanho e as opções ficam guardados no dispositivo.
 
 ## [1.13.1] - 2026-11-20
